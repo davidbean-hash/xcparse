@@ -96,6 +96,19 @@ struct AttachmentExportOptions {
         }
     }
 
+    static func appStoreLocale(language: String, region: String) -> String {
+        // nb (Norwegian Bokmål) maps to "no" in App Store Connect (no region suffix)
+        if language == "nb" {
+            return "no"
+        }
+        var lang = language
+        // es-419 (Latin American Spanish) — extract base language code
+        if lang.contains("-") {
+            lang = String(lang.split(separator: "-").first ?? Substring(lang))
+        }
+        return "\(lang)-\(region)"
+    }
+
     func screenshotDirectoryURL(_ testableSummary: ActionTestableSummary, forBaseURL baseURL: Foundation.URL) -> Foundation.URL {
         var languageRegionDirectoryName: String? = nil
 
@@ -103,16 +116,7 @@ struct AttachmentExportOptions {
         let testRegion = testableSummary.testRegion ?? "System Region"
         if self.divideByLanguage == true, self.divideByRegion == true {
             if self.useAppStoreLocale, testableSummary.testLanguage != nil, testableSummary.testRegion != nil {
-                var lang = testLanguage
-                // nb (Norwegian Bokmål) maps to "no" in App Store Connect
-                if lang == "nb" {
-                    lang = "no"
-                }
-                // es-419 (Latin American Spanish) — extract base language code
-                if lang.contains("-") {
-                    lang = String(lang.split(separator: "-").first ?? Substring(lang))
-                }
-                languageRegionDirectoryName = "\(lang)-\(testRegion)"
+                languageRegionDirectoryName = AttachmentExportOptions.appStoreLocale(language: testLanguage, region: testRegion)
             } else {
                 languageRegionDirectoryName = "\(testLanguage) (\(testRegion))"
             }
