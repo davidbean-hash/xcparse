@@ -37,13 +37,19 @@ See our [Bitrise step's README](https://github.com/ChargePoint/bitrise-step-xcpa
 
 ### GitHub Releases
 
-Download the pre-built binary from the [Releases page](https://github.com/ChargePoint/xcparse/releases):
+Download the pre-built universal binary (arm64 + x86_64) from the [Releases page](https://github.com/ChargePoint/xcparse/releases):
 
 ```shell
-# Download and extract
-tar -xzf xcparse-<version>-macos-universal.tar.gz
+# Download the binary and checksum
+VERSION=<version>
+curl -LO "https://github.com/ChargePoint/xcparse/releases/download/${VERSION}/xcparse-${VERSION}-macos-universal.tar.gz"
+curl -LO "https://github.com/ChargePoint/xcparse/releases/download/${VERSION}/xcparse-${VERSION}-macos-universal.tar.gz.sha256"
 
-# Move to a directory in your PATH
+# Verify integrity
+shasum -a 256 -c "xcparse-${VERSION}-macos-universal.tar.gz.sha256"
+
+# Extract and install
+tar -xzf "xcparse-${VERSION}-macos-universal.tar.gz"
 sudo mv xcparse /usr/local/bin/
 ```
 
