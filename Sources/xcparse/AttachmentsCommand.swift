@@ -9,6 +9,7 @@
 import Foundation
 import TSCBasic
 import TSCUtility
+import XCParseCore
 
 struct AttachmentsCommand: Command {
     let command = "attachments"
