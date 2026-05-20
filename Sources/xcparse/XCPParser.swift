@@ -244,7 +244,11 @@ class XCPParser {
                         }
 
                         let filteredChildActivities = childActivitySummaries.filter(options.activitySummaryFilter)
-                        let filteredAttachments = filteredChildActivities.flatMap { $0.attachments.filter(options.attachmentFilter) }
+                        var filteredAttachments = filteredChildActivities.flatMap { $0.attachments.filter(options.attachmentFilter) }
+
+                        // Also collect attachments from failure summaries (e.g. XCTIssue attachments)
+                        let failureAttachments = testSummary.failureSummaries.flatMap { $0.attachments.filter(options.attachmentFilter) }
+                        filteredAttachments.append(contentsOf: failureAttachments)
 
                         let testSummaryScreenshotURL = options.screenshotDirectoryURL(testSummary, forBaseURL: testableSummaryScreenshotDirectoryURL)
                         if testSummaryScreenshotURL.createDirectoryIfNecessary(createIntermediates: true) != true {
