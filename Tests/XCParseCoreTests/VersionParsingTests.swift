@@ -93,25 +93,43 @@ final class VersionParsingTests: XCTestCase {
         XCTAssertEqual(version, Version(26, 0, 1))
     }
 
-    // MARK: - shouldAddLegacyFlag behavior
+    // MARK: - Version scheme detection
 
-    func testVersionAboveDeprecatedThresholdShouldAddLegacy() {
-        let version = Version(23028, 0, 0)
-        let deprecated = Version.xcresulttoolWithDeprecatedAPIs()
-        XCTAssertTrue(version >= deprecated)
+    func testSemanticVersioningDetected() {
+        XCTAssertTrue(Version.usesSemanticVersioning(Version(26, 0, 0)))
+        XCTAssertTrue(Version.usesSemanticVersioning(Version(16, 0, 0)))
+        XCTAssertFalse(Version.usesSemanticVersioning(Version(15500, 0, 0)))
+        XCTAssertFalse(Version.usesSemanticVersioning(Version(23028, 0, 0)))
     }
 
-    func testVersionBelowDeprecatedThresholdShouldNotAddLegacy() {
-        let version = Version(15500, 0, 0)
-        let deprecated = Version.xcresulttoolWithDeprecatedAPIs()
-        XCTAssertFalse(version >= deprecated)
+    // MARK: - needsLegacyFlag behavior
+
+    func testOldSchemeAboveThresholdNeedsLegacy() {
+        XCTAssertTrue(Version.needsLegacyFlag(Version(23028, 0, 0)))
     }
 
-    func testXcode26VersionShouldNotAddLegacy() {
-        // Xcode 26 reports version 26.0 which is below 23028
-        let version = Version(26, 0, 0)
-        let deprecated = Version.xcresulttoolWithDeprecatedAPIs()
-        XCTAssertFalse(version >= deprecated)
+    func testOldSchemeBelowThresholdDoesNotNeedLegacy() {
+        XCTAssertFalse(Version.needsLegacyFlag(Version(15500, 0, 0)))
+    }
+
+    func testXcode26NeedsLegacy() {
+        // Xcode 26 uses new scheme — always needs legacy flag
+        XCTAssertTrue(Version.needsLegacyFlag(Version(26, 0, 0)))
+    }
+
+    // MARK: - supportsUnicodeExportPaths behavior
+
+    func testOldSchemeAboveThresholdSupportsUnicode() {
+        XCTAssertTrue(Version.supportsUnicodeExportPaths(Version(15500, 0, 0)))
+    }
+
+    func testOldSchemeBelowThresholdDoesNotSupportUnicode() {
+        XCTAssertFalse(Version.supportsUnicodeExportPaths(Version(10000, 0, 0)))
+    }
+
+    func testXcode26SupportsUnicode() {
+        // Xcode 26 uses new scheme — always supports Unicode
+        XCTAssertTrue(Version.supportsUnicodeExportPaths(Version(26, 0, 0)))
     }
 
     // MARK: - Edge cases
@@ -149,9 +167,13 @@ final class VersionParsingTests: XCTestCase {
         ("testNoVersionNumberReturnsNil", testNoVersionNumberReturnsNil),
         ("testFallbackRegexWithDifferentPrefix", testFallbackRegexWithDifferentPrefix),
         ("testFallbackRegexWithDottedVersion", testFallbackRegexWithDottedVersion),
-        ("testVersionAboveDeprecatedThresholdShouldAddLegacy", testVersionAboveDeprecatedThresholdShouldAddLegacy),
-        ("testVersionBelowDeprecatedThresholdShouldNotAddLegacy", testVersionBelowDeprecatedThresholdShouldNotAddLegacy),
-        ("testXcode26VersionShouldNotAddLegacy", testXcode26VersionShouldNotAddLegacy),
+        ("testSemanticVersioningDetected", testSemanticVersioningDetected),
+        ("testOldSchemeAboveThresholdNeedsLegacy", testOldSchemeAboveThresholdNeedsLegacy),
+        ("testOldSchemeBelowThresholdDoesNotNeedLegacy", testOldSchemeBelowThresholdDoesNotNeedLegacy),
+        ("testXcode26NeedsLegacy", testXcode26NeedsLegacy),
+        ("testOldSchemeAboveThresholdSupportsUnicode", testOldSchemeAboveThresholdSupportsUnicode),
+        ("testOldSchemeBelowThresholdDoesNotSupportUnicode", testOldSchemeBelowThresholdDoesNotSupportUnicode),
+        ("testXcode26SupportsUnicode", testXcode26SupportsUnicode),
         ("testMultilineOutputWithVersionOnSecondLine", testMultilineOutputWithVersionOnSecondLine),
         ("testOutputWithExtraWhitespace", testOutputWithExtraWhitespace),
         ("testOutputWithCommasSeparatingComponents", testOutputWithCommasSeparatingComponents),

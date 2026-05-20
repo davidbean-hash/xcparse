@@ -17,6 +17,13 @@ public extension Version {
         return Version(23028, 0, 0)
     }
 
+    /// Xcode 16+ changed xcresulttool version output from large build numbers
+    /// (e.g. 15500, 23028) to semantic versions (e.g. 26.0). This helper detects
+    /// the new scheme so threshold comparisons work correctly.
+    static func usesSemanticVersioning(_ version: Version) -> Bool {
+        return version.major < 100
+    }
+
     static func parseXcresulttoolVersionOutput(_ xcresultVersionString: String) -> Version? {
         let components = xcresultVersionString.components(separatedBy: CharacterSet(charactersIn: ",\n"))
         for string in components {
@@ -69,6 +76,22 @@ public extension Version {
         }
 
         return nil
+    }
+
+    /// Whether `version` needs the `--legacy` flag for xcresulttool commands.
+    static func needsLegacyFlag(_ version: Version) -> Bool {
+        if usesSemanticVersioning(version) {
+            return true
+        }
+        return version >= xcresulttoolWithDeprecatedAPIs()
+    }
+
+    /// Whether `version` supports Unicode export paths.
+    static func supportsUnicodeExportPaths(_ version: Version) -> Bool {
+        if usesSemanticVersioning(version) {
+            return true
+        }
+        return version >= xcresulttoolCompatibleWithUnicodeExportPath()
     }
 
     static func xcresulttool() -> Version? {

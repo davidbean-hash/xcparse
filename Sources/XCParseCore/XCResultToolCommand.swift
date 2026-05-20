@@ -193,9 +193,7 @@ private let shouldAddLegacyFlag: Bool = {
       return true
     }
 
-    let versionWithDeprecatedAPIs = Version.xcresulttoolWithDeprecatedAPIs()
-
-    return xcresulttoolVersion >= versionWithDeprecatedAPIs
+    return Version.needsLegacyFlag(xcresulttoolVersion)
 }()
 
 private extension Array where Element: StringProtocol {

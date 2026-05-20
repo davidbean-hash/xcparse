@@ -164,8 +164,8 @@ class XCPParser {
             return compatability
         }
 
-        let unicodeExport = Version.xcresulttoolCompatibleWithUnicodeExportPath()
-        if xcresulttoolVersion < unicodeExport  {
+        if !Version.supportsUnicodeExportPaths(xcresulttoolVersion) {
+            let unicodeExport = Version.xcresulttoolCompatibleWithUnicodeExportPath()
             // For explaination, see https://github.com/ChargePoint/xcparse/issues/30
             let asciiDestinationPath = destination.lossyASCIIString() ?? destination
             if asciiDestinationPath != destination {
