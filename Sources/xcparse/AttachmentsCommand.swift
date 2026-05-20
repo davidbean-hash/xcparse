@@ -88,9 +88,9 @@ struct AttachmentsCommand: Command {
                                               divideByTest: arguments.get(self.divideByTest) ?? false)
         if let allowedUTIsToExport = arguments.get(self.utiWhitelist) {
             options.attachmentFilter = {
-                let attachmentUTI = $0.uniformTypeIdentifier as CFString
+                let attachmentUTI = $0.uniformTypeIdentifier
                 for allowedUTI in allowedUTIsToExport {
-                    if UTTypeConformsTo(attachmentUTI, allowedUTI as CFString) {
+                    if utiConforms(attachmentUTI, to: allowedUTI) {
                         return true
                     }
                 }
