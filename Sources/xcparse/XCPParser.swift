@@ -154,6 +154,32 @@ class XCPParser {
     let decoder = JSONDecoder()
 
     // MARK: -
+    // MARK: Attachment Collection
+
+    static func collectFilteredAttachments(
+        from activities: [ActionTestActivitySummary],
+        activityFilter: (ActionTestActivitySummary) -> Bool,
+        attachmentFilter: (ActionTestAttachment) -> Bool
+    ) -> [ActionTestAttachment] {
+        var filteredAttachments: [ActionTestAttachment] = []
+        var visited = Set<ObjectIdentifier>()
+        for activity in activities {
+            if activityFilter(activity) {
+                var activitiesToCheck = [activity]
+                while !activitiesToCheck.isEmpty {
+                    let current = activitiesToCheck.removeFirst()
+                    let id = ObjectIdentifier(current)
+                    if visited.contains(id) { continue }
+                    visited.insert(id)
+                    filteredAttachments.append(contentsOf: current.attachments.filter(attachmentFilter))
+                    activitiesToCheck.append(contentsOf: current.subactivities)
+                }
+            }
+        }
+        return filteredAttachments
+    }
+
+    // MARK: -
     // MARK: Parsing Actions
 
     func checkXCResultToolCompatability(destination: String) -> XCResultToolCompatability {
@@ -243,21 +269,11 @@ class XCPParser {
                             continue
                         }
 
-                        var filteredAttachments: [ActionTestAttachment] = []
-                        var visited = Set<ObjectIdentifier>()
-                        for activity in childActivitySummaries {
-                            if options.activitySummaryFilter(activity) {
-                                var activitiesToCheck = [activity]
-                                while !activitiesToCheck.isEmpty {
-                                    let current = activitiesToCheck.removeFirst()
-                                    let id = ObjectIdentifier(current)
-                                    if visited.contains(id) { continue }
-                                    visited.insert(id)
-                                    filteredAttachments.append(contentsOf: current.attachments.filter(options.attachmentFilter))
-                                    activitiesToCheck.append(contentsOf: current.subactivities)
-                                }
-                            }
-                        }
+                        let filteredAttachments = XCPParser.collectFilteredAttachments(
+                            from: childActivitySummaries,
+                            activityFilter: options.activitySummaryFilter,
+                            attachmentFilter: options.attachmentFilter
+                        )
 
                         let testSummaryScreenshotURL = options.screenshotDirectoryURL(testSummary, forBaseURL: testableSummaryScreenshotDirectoryURL)
                         if testSummaryScreenshotURL.createDirectoryIfNecessary(createIntermediates: true) != true {
