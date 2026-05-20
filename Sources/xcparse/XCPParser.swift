@@ -243,8 +243,21 @@ class XCPParser {
                             continue
                         }
 
-                        let filteredChildActivities = childActivitySummaries.filter(options.activitySummaryFilter)
-                        var filteredAttachments = filteredChildActivities.flatMap { $0.attachments.filter(options.attachmentFilter) }
+                        // When filtering by activity type, also include attachments from
+                        // descendant subactivities of matching activities (e.g. attachmentContainer
+                        // children of testAssertionFailure activities in Xcode 14.2+)
+                        var filteredAttachments: [ActionTestAttachment] = []
+                        let topLevelActivities = testSummary.activitySummaries
+                        func collectAttachments(from activities: [ActionTestActivitySummary], parentMatched: Bool) {
+                            for activity in activities {
+                                let matches = options.activitySummaryFilter(activity)
+                                if matches || parentMatched {
+                                    filteredAttachments.append(contentsOf: activity.attachments.filter(options.attachmentFilter))
+                                }
+                                collectAttachments(from: activity.subactivities, parentMatched: matches || parentMatched)
+                            }
+                        }
+                        collectAttachments(from: topLevelActivities, parentMatched: false)
 
                         // Also collect attachments from failure summaries (e.g. XCTIssue attachments)
                         let failureAttachments = testSummary.failureSummaries.flatMap { $0.attachments.filter(options.attachmentFilter) }
