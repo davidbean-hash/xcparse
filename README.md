@@ -35,6 +35,24 @@ Want to use this in [Bitrise](https://www.bitrise.io)? We have an [xcparse Bitri
 
 See our [Bitrise step's README](https://github.com/ChargePoint/bitrise-step-xcparse/blob/master/README.md) for more information.
 
+### GitHub Releases
+
+Download the pre-built universal binary (arm64 + x86_64) from the [Releases page](https://github.com/ChargePoint/xcparse/releases):
+
+```shell
+# Download the binary and checksum
+VERSION=<version>
+curl -LO "https://github.com/ChargePoint/xcparse/releases/download/${VERSION}/xcparse-${VERSION}-macos-universal.tar.gz"
+curl -LO "https://github.com/ChargePoint/xcparse/releases/download/${VERSION}/xcparse-${VERSION}-macos-universal.tar.gz.sha256"
+
+# Verify integrity
+shasum -a 256 -c "xcparse-${VERSION}-macos-universal.tar.gz.sha256"
+
+# Extract and install
+tar -xzf "xcparse-${VERSION}-macos-universal.tar.gz"
+sudo mv xcparse /usr/local/bin/
+```
+
 ## Usage
 
 ```
