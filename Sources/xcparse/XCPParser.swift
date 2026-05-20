@@ -463,6 +463,85 @@ class XCPParser {
         }
     }
 
+    func extractReport(xcresultPath: String, destination: String) throws {
+        var xcresult = XCResult(path: xcresultPath, console: self.console)
+        guard let invocationRecord = xcresult.invocationRecord else {
+            xcresult.console.writeMessage(""\(xcresult.path)" does not appear to be an xcresult", to: .error)
+            return
+        }
+
+        let destinationURL = URL(fileURLWithPath: destination)
+        if destinationURL.createDirectoryIfNecessary() != true {
+            return
+        }
+
+        var report: [[String: Any]] = []
+
+        let actions = invocationRecord.actions.filter { $0.actionResult.testsRef != nil }
+        for action in actions {
+            guard let testRef = action.actionResult.testsRef else { continue }
+
+            guard let testPlanRunSummaries: ActionTestPlanRunSummaries = testRef.modelFromReference(withXCResult: xcresult) else {
+                continue
+            }
+
+            for testPlanRun in testPlanRunSummaries.summaries {
+                for testableSummary in testPlanRun.testableSummaries {
+                    let testMap = testableSummary.flattenedTestSummaryMap(withXCResult: xcresult)
+                    for (testSummary, _) in testMap {
+                        var testEntry: [String: Any] = [
+                            "name": testSummary.name ?? "Unknown",
+                            "identifier": testSummary.identifier ?? "",
+                            "status": testSummary.testStatus,
+                            "duration": testSummary.duration,
+                        ]
+
+                        var failures: [[String: Any]] = []
+                        for failure in testSummary.failureSummaries {
+                            var failureEntry: [String: Any] = [
+                                "message": failure.message ?? "",
+                                "fileName": failure.fileName,
+                                "lineNumber": failure.lineNumber,
+                            ]
+                            if let issueType = failure.issueType {
+                                failureEntry["issueType"] = issueType
+                            }
+                            failures.append(failureEntry)
+                        }
+                        if !failures.isEmpty {
+                            testEntry["failures"] = failures
+                        }
+
+                        var attachmentNames: [String] = []
+                        let allActivities = testSummary.allChildActivitySummaries()
+                        for activity in allActivities {
+                            for attachment in activity.attachments {
+                                attachmentNames.append(attachment.filename ?? attachment.name ?? "Unknown")
+                            }
+                        }
+                        if !attachmentNames.isEmpty {
+                            testEntry["attachments"] = attachmentNames
+                        }
+
+                        if let targetName = testableSummary.targetName {
+                            testEntry["target"] = targetName
+                        }
+                        if let testPlanName = testPlanRun.name {
+                            testEntry["testPlan"] = testPlanName
+                        }
+
+                        report.append(testEntry)
+                    }
+                }
+            }
+        }
+
+        let jsonData = try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])
+        let reportURL = destinationURL.appendingPathComponent("test_report.json")
+        try jsonData.write(to: reportURL)
+        self.console.writeMessage("🎊 Test report exported to \(reportURL.path) 🎊")
+    }
+
     func printVersion() {
         self.console.writeMessage("\(xcparseCurrentVersion)")
     }
@@ -513,6 +592,7 @@ class XCPParser {
         registry.register(command: AttachmentsCommand.self)
         registry.register(command: VersionCommand.self)
         registry.register(command: ConverterCommand.self)
+        registry.register(command: ReportCommand.self)
         registry.run()
 
         self.printLatestVersionInfoIfNeeded()
