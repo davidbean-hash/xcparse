@@ -244,11 +244,15 @@ class XCPParser {
                         }
 
                         var filteredAttachments: [ActionTestAttachment] = []
+                        var visited = Set<ObjectIdentifier>()
                         for activity in childActivitySummaries {
                             if options.activitySummaryFilter(activity) {
                                 var activitiesToCheck = [activity]
                                 while !activitiesToCheck.isEmpty {
                                     let current = activitiesToCheck.removeFirst()
+                                    let id = ObjectIdentifier(current)
+                                    if visited.contains(id) { continue }
+                                    visited.insert(id)
                                     filteredAttachments.append(contentsOf: current.attachments.filter(options.attachmentFilter))
                                     activitiesToCheck.append(contentsOf: current.subactivities)
                                 }
