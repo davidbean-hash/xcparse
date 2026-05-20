@@ -19,6 +19,7 @@ struct AttachmentsCommand: Command {
     var outputPath: PositionalArgument<PathArgument>
     var verbose: OptionArgument<Bool>
 
+    var divideByIdentifier: OptionArgument<Bool>
     var divideByModel: OptionArgument<Bool>
     var divideByOS: OptionArgument<Bool>
     var divideByTestRun: OptionArgument<Bool>
@@ -40,6 +41,7 @@ struct AttachmentsCommand: Command {
                                    optional: true, usage: "Folder to export results to", completion: .filename)
         verbose = subparser.add(option: "--verbose", shortName: "-v", kind: Bool.self, usage: "Enable verbose logging")
 
+        divideByIdentifier = subparser.add(option: "--identifier", shortName: nil, kind: Bool.self, usage: "Divide attachments by device identifier (UDID)")
         divideByModel = subparser.add(option: "--model", shortName: nil, kind: Bool.self, usage: "Divide attachments by model")
         divideByOS = subparser.add(option: "--os", shortName: nil, kind: Bool.self, usage: "Divide attachments by OS")
         divideByTestRun = subparser.add(option: "--test-run", shortName: nil, kind: Bool.self, usage: "Deprecated. Use --test-plan-config")
@@ -84,6 +86,7 @@ struct AttachmentsCommand: Command {
 
         // Let's set up our export options
         var options = AttachmentExportOptions(addTestScreenshotsDirectory: false,
+                                              divideByTargetIdentifier: arguments.get(self.divideByIdentifier) ?? false,
                                               divideByTargetModel: arguments.get(self.divideByModel) ?? false,
                                               divideByTargetOS: arguments.get(self.divideByOS) ?? false,
                                               divideByTestPlanConfig: arguments.get(self.divideByTestPlanConfig) ?? (arguments.get(self.divideByTestRun) ?? false),

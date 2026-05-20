@@ -21,6 +21,7 @@ struct XCResultToolCompatability {
 
 struct AttachmentExportOptions {
     var addTestScreenshotsDirectory: Bool = false
+    var divideByTargetIdentifier: Bool = false
     var divideByTargetModel: Bool = false
     var divideByTargetOS: Bool = false
     var divideByTestPlanConfig: Bool = false
@@ -60,7 +61,17 @@ struct AttachmentExportOptions {
             modelName = "iPhone XR"
         }
 
-        if self.divideByTargetModel == true, self.divideByTargetOS == true {
+        if self.divideByTargetIdentifier {
+            if self.divideByTargetModel == true, self.divideByTargetOS == true {
+                targetDeviceFolderName = "\(modelName) (\(deviceRecord.operatingSystemVersion)) [\(deviceRecord.identifier)]"
+            } else if self.divideByTargetModel {
+                targetDeviceFolderName = "\(modelName) [\(deviceRecord.identifier)]"
+            } else if self.divideByTargetOS {
+                targetDeviceFolderName = "\(deviceRecord.operatingSystemVersion) [\(deviceRecord.identifier)]"
+            } else {
+                targetDeviceFolderName = deviceRecord.identifier
+            }
+        } else if self.divideByTargetModel == true, self.divideByTargetOS == true {
             targetDeviceFolderName = modelName + " (\(deviceRecord.operatingSystemVersion))"
         } else if self.divideByTargetModel {
             targetDeviceFolderName = modelName
