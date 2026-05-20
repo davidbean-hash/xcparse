@@ -466,7 +466,7 @@ class XCPParser {
     func extractReport(xcresultPath: String, destination: String) throws {
         var xcresult = XCResult(path: xcresultPath, console: self.console)
         guard let invocationRecord = xcresult.invocationRecord else {
-            xcresult.console.writeMessage(""\(xcresult.path)" does not appear to be an xcresult", to: .error)
+            xcresult.console.writeMessage("\"\(xcresult.path)\" does not appear to be an xcresult", to: .error)
             return
         }
 

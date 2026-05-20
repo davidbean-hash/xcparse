@@ -9,6 +9,7 @@
 import Foundation
 import TSCBasic
 import TSCUtility
+import XCParseCore
 
 // This is cribbed form a great blog post on ArgumentParser
 // https://www.enekoalonso.com/articles/handling-commands-with-swift-package-manager
