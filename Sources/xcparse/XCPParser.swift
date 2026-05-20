@@ -428,6 +428,75 @@ class XCPParser {
         }
     }
 
+    func generateTestReport(xcresultPath: String) throws -> TestReport {
+        var xcresult = XCResult(path: xcresultPath, console: self.console)
+        guard let invocationRecord = xcresult.invocationRecord else {
+            xcresult.console.writeMessage(""\(xcresult.path)" does not appear to be an xcresult", to: .error)
+            return TestReport(tests: [])
+        }
+
+        var entries: [TestReportEntry] = []
+
+        let actions = invocationRecord.actions.filter { $0.actionResult.testsRef != nil }
+        for action in actions {
+            guard let testRef = action.actionResult.testsRef else {
+                continue
+            }
+
+            guard let testPlanRunSummaries: ActionTestPlanRunSummaries = testRef.modelFromReference(withXCResult: xcresult) else {
+                xcresult.console.writeMessage("Error: Unhandled test reference type \(String(describing: testRef.targetType?.getType()))", to: .error)
+                continue
+            }
+
+            for testPlanRun in testPlanRunSummaries.summaries {
+                for testableSummary in testPlanRun.testableSummaries {
+                    let testSummaryMap = testableSummary.flattenedTestSummaryMap(withXCResult: xcresult)
+                    for (testSummary, childActivitySummaries) in testSummaryMap {
+                        let failureEntries: [TestFailureEntry] = testSummary.failureSummaries.map { failure in
+                            TestFailureEntry(
+                                file: failure.fileName.isEmpty ? nil : failure.fileName,
+                                line: failure.lineNumber,
+                                message: failure.message
+                            )
+                        }
+
+                        var attachmentEntries: [TestAttachmentEntry] = []
+                        for activity in childActivitySummaries {
+                            for attachment in activity.attachments {
+                                attachmentEntries.append(TestAttachmentEntry(
+                                    name: attachment.name,
+                                    filename: attachment.filename,
+                                    uniformTypeIdentifier: attachment.uniformTypeIdentifier
+                                ))
+                            }
+                        }
+                        for failure in testSummary.failureSummaries {
+                            for attachment in failure.attachments {
+                                attachmentEntries.append(TestAttachmentEntry(
+                                    name: attachment.name,
+                                    filename: attachment.filename,
+                                    uniformTypeIdentifier: attachment.uniformTypeIdentifier
+                                ))
+                            }
+                        }
+
+                        let entry = TestReportEntry(
+                            name: testSummary.name,
+                            identifier: testSummary.identifier,
+                            status: testSummary.testStatus,
+                            duration: testSummary.duration,
+                            failureSummaries: failureEntries.isEmpty ? nil : failureEntries,
+                            attachments: attachmentEntries.isEmpty ? nil : attachmentEntries
+                        )
+                        entries.append(entry)
+                    }
+                }
+            }
+        }
+
+        return TestReport(tests: entries)
+    }
+
     func printVersion() {
         self.console.writeMessage("\(xcparseCurrentVersion)")
     }
@@ -478,6 +547,7 @@ class XCPParser {
         registry.register(command: AttachmentsCommand.self)
         registry.register(command: VersionCommand.self)
         registry.register(command: ConverterCommand.self)
+        registry.register(command: TestReportCommand.self)
         registry.run()
 
         self.printLatestVersionInfoIfNeeded()
