@@ -244,7 +244,11 @@ class XCPParser {
                         }
 
                         let filteredChildActivities = childActivitySummaries.filter(options.activitySummaryFilter)
-                        let filteredAttachments = filteredChildActivities.flatMap { $0.attachments.filter(options.attachmentFilter) }
+                        var filteredAttachments = filteredChildActivities.flatMap { $0.attachments.filter(options.attachmentFilter) }
+
+                        // Also collect attachments from failure summaries
+                        let failureAttachments = testSummary.failureSummaries.flatMap { $0.attachments.filter(options.attachmentFilter) }
+                        filteredAttachments.append(contentsOf: failureAttachments)
 
                         let testSummaryScreenshotURL = options.screenshotDirectoryURL(testSummary, forBaseURL: testableSummaryScreenshotDirectoryURL)
                         if testSummaryScreenshotURL.createDirectoryIfNecessary(createIntermediates: true) != true {
@@ -288,7 +292,12 @@ class XCPParser {
         for (index, attachment) in attachments.enumerated() {
             progressBar.update(step: index, total: attachments.count, text: "Extracting \"\(attachment.filename ?? "Unknown Filename")\"")
 
-            XCResultToolCommand.Export(withXCResult: xcresult, attachment: attachment, outputPath: screenshotDirectoryURL.path).run()
+            guard let exportCommand = XCResultToolCommand.Export(withXCResult: xcresult, attachment: attachment, outputPath: screenshotDirectoryURL.path) else {
+                xcresult.console.writeMessage("Warning: Skipping attachment \"\(attachment.filename ?? "Unknown")\" — no payload reference", to: .standard)
+                continue
+            }
+
+            exportCommand.run()
         }
 
         progressBar.update(step: attachments.count, total: attachments.count, text: "🎊 Export complete! 🎊")

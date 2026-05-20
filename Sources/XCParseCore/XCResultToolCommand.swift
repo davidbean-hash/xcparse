@@ -81,15 +81,16 @@ open class XCResultToolCommand {
             super.init(withXCResult: xcresult, process: process)
         }
 
-        public init(withXCResult xcresult: XCResult, attachment: ActionTestAttachment, outputPath: String) {
-            if let identifier = attachment.payloadRef?.id {
-                self.id = identifier;
-
-                // Now let's figure out the filename & path
-                let filename = attachment.filename ?? identifier
-                let attachmentOutputPath = URL.init(fileURLWithPath: outputPath).appendingPathComponent(filename)
-                self.outputPath = attachmentOutputPath.path
+        public init?(withXCResult xcresult: XCResult, attachment: ActionTestAttachment, outputPath: String) {
+            guard let identifier = attachment.payloadRef?.id else {
+                return nil
             }
+
+            self.id = identifier
+
+            let filename = attachment.filename ?? identifier
+            let attachmentOutputPath = URL(fileURLWithPath: outputPath).appendingPathComponent(filename)
+            self.outputPath = attachmentOutputPath.path
 
             var processArgs = xcresultToolArguments
             processArgs.append(contentsOf: ["export",

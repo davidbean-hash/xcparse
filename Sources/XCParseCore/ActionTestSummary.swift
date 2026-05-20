@@ -68,4 +68,17 @@ open class ActionTestSummary : ActionTestSummaryIdentifiableObject {
 
         return activitySummaries
     }
+
+    public func allAttachments() -> [ActionTestAttachment] {
+        var attachments: [ActionTestAttachment] = []
+
+        // Collect attachments from all child activity summaries
+        let childActivities = allChildActivitySummaries()
+        attachments.append(contentsOf: childActivities.flatMap { $0.attachments })
+
+        // Collect attachments from failure summaries
+        attachments.append(contentsOf: failureSummaries.flatMap { $0.attachments })
+
+        return attachments
+    }
 }
