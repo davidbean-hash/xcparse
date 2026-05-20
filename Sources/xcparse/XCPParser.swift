@@ -292,12 +292,12 @@ class XCPParser {
         for (index, attachment) in attachments.enumerated() {
             progressBar.update(step: index, total: attachments.count, text: "Extracting \"\(attachment.filename ?? "Unknown Filename")\"")
 
-            if attachment.payloadRef == nil {
+            guard let exportCommand = XCResultToolCommand.Export(withXCResult: xcresult, attachment: attachment, outputPath: screenshotDirectoryURL.path) else {
                 xcresult.console.writeMessage("Warning: Skipping attachment \"\(attachment.filename ?? "Unknown")\" — no payload reference", to: .standard)
                 continue
             }
 
-            XCResultToolCommand.Export(withXCResult: xcresult, attachment: attachment, outputPath: screenshotDirectoryURL.path).run()
+            exportCommand.run()
         }
 
         progressBar.update(step: attachments.count, total: attachments.count, text: "🎊 Export complete! 🎊")
