@@ -243,8 +243,17 @@ class XCPParser {
                             continue
                         }
 
-                        let filteredChildActivities = childActivitySummaries.filter(options.activitySummaryFilter)
-                        let filteredAttachments = filteredChildActivities.flatMap { $0.attachments.filter(options.attachmentFilter) }
+                        var filteredAttachments: [ActionTestAttachment] = []
+                        for activity in childActivitySummaries {
+                            if options.activitySummaryFilter(activity) {
+                                var activitiesToCheck = [activity]
+                                while !activitiesToCheck.isEmpty {
+                                    let current = activitiesToCheck.removeFirst()
+                                    filteredAttachments.append(contentsOf: current.attachments.filter(options.attachmentFilter))
+                                    activitiesToCheck.append(contentsOf: current.subactivities)
+                                }
+                            }
+                        }
 
                         let testSummaryScreenshotURL = options.screenshotDirectoryURL(testSummary, forBaseURL: testableSummaryScreenshotDirectoryURL)
                         if testSummaryScreenshotURL.createDirectoryIfNecessary(createIntermediates: true) != true {
