@@ -9,6 +9,7 @@
 import Foundation
 import TSCBasic
 import TSCUtility
+import XCParseCore
 
 // This is cribbed form a great blog post on ArgumentParser
 // https://www.enekoalonso.com/articles/handling-commands-with-swift-package-manager
@@ -70,7 +71,7 @@ struct CommandRegistry {
                                                   divideByTestPlanConfig: false,
                                                   xcresulttoolCompatability: xcresulttoolCompatability,
                                                   attachmentFilter: {
-                                                    return UTTypeConformsTo($0.uniformTypeIdentifier as CFString, "public.image" as CFString)
+                                                    return utiConforms($0.uniformTypeIdentifier, to: "public.image")
             })
             try xcpParser.extractAttachments(xcresultPath: legacyScreenshotPaths[0].path.pathString,
                                              destination: destination,

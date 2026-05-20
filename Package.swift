@@ -5,9 +5,6 @@ import PackageDescription
 
 let package = Package(
     name: "xcparse",
-    platforms: [
-       .macOS(.v10_13),
-    ],
     products: [
         .executable(name: "xcparse", targets: ["xcparse"]),
         .library(

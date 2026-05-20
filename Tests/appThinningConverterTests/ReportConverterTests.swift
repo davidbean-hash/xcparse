@@ -16,8 +16,6 @@ final class ReportConverterTests: XCTestCase {
     }
 
     func testParseTextReturnsExpected() throws {
-        let bundle = Bundle(for: type(of: self))
-        
         let filepath = try Resource(name: "App Thinning Size Report", type: "txt")
         let file = try String(contentsOfFile: filepath.url.path)
         let text = try XCTUnwrap(file)

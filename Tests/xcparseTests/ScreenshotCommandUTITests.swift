@@ -7,6 +7,7 @@
 
 import XCTest
 import class Foundation.Bundle
+import XCParseCore
 
 final class ScreenshotCommandUTITests: XCTestCase {
     func testScreenshotUTIFilter() throws {
@@ -19,7 +20,7 @@ final class ScreenshotCommandUTITests: XCTestCase {
         ]
 
         for UTI in imageUTIs {
-            let conformsAsImage = UTTypeConformsTo(UTI as CFString, "public.image" as CFString)
+            let conformsAsImage = utiConforms(UTI, to: "public.image")
             XCTAssertTrue(conformsAsImage, "\(UTI) does not conform to public.image UTI. Screenshots command will not extract")
         }
 
@@ -29,7 +30,7 @@ final class ScreenshotCommandUTITests: XCTestCase {
         ]
 
         for UTI in nonImageUTIs {
-            let conformsAsImage = UTTypeConformsTo(UTI as CFString, "public.image" as CFString)
+            let conformsAsImage = utiConforms(UTI, to: "public.image")
             XCTAssertFalse(conformsAsImage, "\(UTI) unexpectedly conforms to public.image UTI. Screenshots command will extract this")
         }
     }

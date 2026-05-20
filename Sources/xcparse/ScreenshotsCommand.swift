@@ -9,6 +9,7 @@
 import Foundation
 import TSCBasic
 import TSCUtility
+import XCParseCore
 
 struct ScreenshotsCommand: Command {
     let command = "screenshots"
@@ -89,7 +90,7 @@ struct ScreenshotsCommand: Command {
                                               divideByRegion: arguments.get(self.divideByRegion) ?? false,
                                               divideByTest: arguments.get(self.divideByTest) ?? false,
                                               attachmentFilter: {
-                                                return UTTypeConformsTo($0.uniformTypeIdentifier as CFString, "public.image" as CFString)
+                                                return utiConforms($0.uniformTypeIdentifier, to: "public.image")
         })
         if let allowedTestStatuses = arguments.get(self.testStatusWhitelist) {
             options.testSummaryFilter = { allowedTestStatuses.contains($0.testStatus) }
