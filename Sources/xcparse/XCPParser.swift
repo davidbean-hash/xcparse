@@ -27,6 +27,7 @@ struct AttachmentExportOptions {
     var divideByLanguage: Bool = false
     var divideByRegion: Bool = false
     var divideByTest: Bool = false
+    var useOriginalAttachmentName: Bool = false
 
     var xcresulttoolCompatability = XCResultToolCompatability()
 
@@ -272,13 +273,23 @@ class XCPParser {
             let exportRelativePath = exportURL.path.replacingOccurrences(of: screenshotBaseDirectoryURL.path, with: "").trimmingCharacters(in: CharacterSet(charactersIn: "/"))
             let displayName = exportRelativePath.replacingOccurrences(of: "/", with: " - ")
 
-            self.exportAttachments(withXCResult: xcresult, toDirectory: exportURL, attachments: attachmentsToExport, displayName: displayName)
+            self.exportAttachments(withXCResult: xcresult, toDirectory: exportURL, attachments: attachmentsToExport, displayName: displayName, useOriginalAttachmentName: options.useOriginalAttachmentName)
         }
     }
 
-    func exportAttachments(withXCResult xcresult: XCResult, toDirectory screenshotDirectoryURL: Foundation.URL, attachments: [ActionTestAttachment], displayName: String = "") {
+    func exportAttachments(withXCResult xcresult: XCResult, toDirectory screenshotDirectoryURL: Foundation.URL, attachments: [ActionTestAttachment], displayName: String = "", useOriginalAttachmentName: Bool = false) {
         if attachments.count <= 0 {
             return
+        }
+
+        // When using original names, pre-compute unique filenames to avoid overwrites
+        var filenameOverrides: [Int: String] = [:]
+        if useOriginalAttachmentName {
+            let attachmentInfos = attachments.map { (originalName: $0.name, filename: $0.filename, payloadId: $0.payloadRef?.id) }
+            let resolvedNames = AttachmentNameResolver.resolveAndDeduplicateNames(attachments: attachmentInfos)
+            for (index, name) in resolvedNames.enumerated() {
+                filenameOverrides[index] = name
+            }
         }
 
         let header = (displayName != "") ? "Exporting \"\(displayName)\" Attachments" : "Exporting Attachments"
@@ -288,7 +299,12 @@ class XCPParser {
         for (index, attachment) in attachments.enumerated() {
             progressBar.update(step: index, total: attachments.count, text: "Extracting \"\(attachment.filename ?? "Unknown Filename")\"")
 
-            XCResultToolCommand.Export(withXCResult: xcresult, attachment: attachment, outputPath: screenshotDirectoryURL.path).run()
+            if let overrideName = filenameOverrides[index], let payloadId = attachment.payloadRef?.id {
+                let overridePath = screenshotDirectoryURL.appendingPathComponent(overrideName).path
+                XCResultToolCommand.Export(withXCResult: xcresult, id: payloadId, outputPath: overridePath, type: .file).run()
+            } else {
+                XCResultToolCommand.Export(withXCResult: xcresult, attachment: attachment, outputPath: screenshotDirectoryURL.path, useOriginalName: useOriginalAttachmentName).run()
+            }
         }
 
         progressBar.update(step: attachments.count, total: attachments.count, text: "🎊 Export complete! 🎊")

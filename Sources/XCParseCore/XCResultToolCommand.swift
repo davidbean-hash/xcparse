@@ -81,12 +81,23 @@ open class XCResultToolCommand {
             super.init(withXCResult: xcresult, process: process)
         }
 
-        public init(withXCResult xcresult: XCResult, attachment: ActionTestAttachment, outputPath: String) {
+        public init(withXCResult xcresult: XCResult, attachment: ActionTestAttachment, outputPath: String, useOriginalName: Bool = false) {
             if let identifier = attachment.payloadRef?.id {
                 self.id = identifier;
 
                 // Now let's figure out the filename & path
-                let filename = attachment.filename ?? identifier
+                var filename = attachment.filename ?? identifier
+
+                if useOriginalName, let originalName = attachment.name {
+                    let originalExtension = (filename as NSString).pathExtension
+                    let nameExtension = (originalName as NSString).pathExtension
+                    if !originalExtension.isEmpty && nameExtension.lowercased() != originalExtension.lowercased() {
+                        filename = (originalName as NSString).appendingPathExtension(originalExtension) ?? originalName
+                    } else {
+                        filename = originalName
+                    }
+                }
+
                 let attachmentOutputPath = URL.init(fileURLWithPath: outputPath).appendingPathComponent(filename)
                 self.outputPath = attachmentOutputPath.path
             }
