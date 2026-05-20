@@ -17,32 +17,90 @@ public extension Version {
         return Version(23028, 0, 0)
     }
 
+    /// Xcode 16+ changed xcresulttool version output from large build numbers
+    /// (e.g. 15500, 23028) to semantic versions (e.g. 26.0). This helper detects
+    /// the new scheme so threshold comparisons work correctly.
+    static func usesSemanticVersioning(_ version: Version) -> Bool {
+        return version.major < 100
+    }
+
+    static func parseXcresulttoolVersionOutput(_ xcresultVersionString: String) -> Version? {
+        let components = xcresultVersionString.components(separatedBy: CharacterSet(charactersIn: ",\n"))
+        for string in components {
+            let trimmedString = string.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmedString.hasPrefix("xcresulttool version ") {
+                let xcresulttoolVersionString = trimmedString.replacingOccurrences(of: "xcresulttool version ", with: "")
+
+                if let xcresulttoolVersionInt = Int(xcresulttoolVersionString) {
+                    return Version(xcresulttoolVersionInt, 0, 0)
+                }
+
+                if let parsedVersion = Version(string: xcresulttoolVersionString) {
+                    return parsedVersion
+                }
+
+                let dotComponents = xcresulttoolVersionString.components(separatedBy: ".")
+                if let majorString = dotComponents.first, let major = Int(majorString) {
+                    let minor = dotComponents.count > 1 ? Int(dotComponents[1]) ?? 0 : 0
+                    let patch = dotComponents.count > 2 ? Int(dotComponents[2]) ?? 0 : 0
+                    return Version(major, minor, patch)
+                }
+
+                return nil
+            }
+        }
+
+        // Fallback: scan for any "version X.Y.Z" or "version X" pattern
+        guard let versionPattern = try? NSRegularExpression(pattern: #"version\s+(\d+(?:\.\d+)*)"#, options: .caseInsensitive) else {
+            return nil
+        }
+        let fullOutput = xcresultVersionString.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let match = versionPattern.firstMatch(in: fullOutput, range: NSRange(fullOutput.startIndex..., in: fullOutput)),
+           let versionRange = Range(match.range(at: 1), in: fullOutput) {
+            let versionString = String(fullOutput[versionRange])
+
+            if let versionInt = Int(versionString) {
+                return Version(versionInt, 0, 0)
+            }
+
+            if let parsedVersion = Version(string: versionString) {
+                return parsedVersion
+            }
+
+            let dotComponents = versionString.components(separatedBy: ".")
+            if let majorString = dotComponents.first, let major = Int(majorString) {
+                let minor = dotComponents.count > 1 ? Int(dotComponents[1]) ?? 0 : 0
+                let patch = dotComponents.count > 2 ? Int(dotComponents[2]) ?? 0 : 0
+                return Version(major, minor, patch)
+            }
+        }
+
+        return nil
+    }
+
+    /// Whether `version` needs the `--legacy` flag for xcresulttool commands.
+    static func needsLegacyFlag(_ version: Version) -> Bool {
+        if usesSemanticVersioning(version) {
+            return true
+        }
+        return version >= xcresulttoolWithDeprecatedAPIs()
+    }
+
+    /// Whether `version` supports Unicode export paths.
+    static func supportsUnicodeExportPaths(_ version: Version) -> Bool {
+        if usesSemanticVersioning(version) {
+            return true
+        }
+        return version >= xcresulttoolCompatibleWithUnicodeExportPath()
+    }
+
     static func xcresulttool() -> Version? {
         guard let xcresulttoolVersionResult = XCResultToolCommand.Version().run() else {
             return nil
         }
         do {
             let xcresultVersionString = try xcresulttoolVersionResult.utf8Output()
-
-            let components = xcresultVersionString.components(separatedBy: CharacterSet(charactersIn: ",\n"))
-            for string in components {
-                let trimmedString = string.trimmingCharacters(in: .whitespacesAndNewlines)
-                if trimmedString.hasPrefix("xcresulttool version ") {
-                    let xcresulttoolVersionString = trimmedString.replacingOccurrences(of: "xcresulttool version ", with: "")
-                    // Check to see if we can convert it to a number
-                    var xcresulttoolVersion: Version?
-
-                    if let xcresulttoolVersionInt = Int(xcresulttoolVersionString) {
-                        xcresulttoolVersion = Version(xcresulttoolVersionInt, 0, 0)
-                    } else {
-                        xcresulttoolVersion = Version(string: xcresulttoolVersionString)
-                    }
-
-                    return xcresulttoolVersion
-                }
-            }
-
-            return nil
+            return parseXcresulttoolVersionOutput(xcresultVersionString)
         } catch {
             print("Failed to parse xcresulttool version with error: \(error)")
             return nil

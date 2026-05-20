@@ -44,6 +44,9 @@ let package = Package(
             name: "xcparseTests",
             dependencies: ["xcparse", "testUtility"]),
         .testTarget(
+            name: "XCParseCoreTests",
+            dependencies: ["XCParseCore"]),
+        .testTarget(
             name: "appThinningConverterTests",
             dependencies: ["Converter", "testUtility"]),
     ],
