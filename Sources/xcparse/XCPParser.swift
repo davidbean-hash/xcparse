@@ -28,6 +28,7 @@ struct AttachmentExportOptions {
     var divideByRegion: Bool = false
     var divideByTest: Bool = false
     var useOriginalFileName: Bool = false
+    var useASCLocaleFormat: Bool = false
 
     var xcresulttoolCompatability = XCResultToolCompatability()
 
@@ -102,7 +103,12 @@ struct AttachmentExportOptions {
         let testLanguage = testableSummary.testLanguage ?? "System Language"
         let testRegion = testableSummary.testRegion ?? "System Region"
         if self.divideByLanguage == true, self.divideByRegion == true {
-            languageRegionDirectoryName = "\(testLanguage) (\(testRegion))"
+            if self.useASCLocaleFormat {
+                // App Store Connect format: "en-US" instead of "en (US)"
+                languageRegionDirectoryName = "\(testLanguage)-\(testRegion)"
+            } else {
+                languageRegionDirectoryName = "\(testLanguage) (\(testRegion))"
+            }
         } else if self.divideByLanguage == true {
             languageRegionDirectoryName = testLanguage
         } else if self.divideByRegion == true {

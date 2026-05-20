@@ -29,6 +29,7 @@ struct ScreenshotsCommand: Command {
     var divideByTest: OptionArgument<Bool>
 
     var useOriginalFileName: OptionArgument<Bool>
+    var useASCLocaleFormat: OptionArgument<Bool>
     var testStatusWhitelist: OptionArgument<[String]>
     var activityTypeWhitelist: OptionArgument<[String]>
 
@@ -50,6 +51,7 @@ struct ScreenshotsCommand: Command {
         divideByTest = subparser.add(option: "--test", shortName: nil, kind: Bool.self, usage: "Divide screenshots by test")
 
         useOriginalFileName = subparser.add(option: "--original-name", shortName: nil, kind: Bool.self, usage: "Use the original attachment name instead of the generated filename")
+        useASCLocaleFormat = subparser.add(option: "--asc-locale", shortName: nil, kind: Bool.self, usage: "Use App Store Connect locale format for language/region directory names (e.g. 'en-US' instead of 'en (US)')")
         testStatusWhitelist = subparser.add(option: "--test-status", shortName: nil, kind: [String].self, strategy: .upToNextOption,
                                             usage: "Whitelist of acceptable test statuses for screenshots [optional, example: \"--test-status Success Failure\"]")
         activityTypeWhitelist = subparser.add(option: "--activity-type", shortName: nil, kind: [String].self, strategy: .upToNextOption,
@@ -91,6 +93,7 @@ struct ScreenshotsCommand: Command {
                                               divideByRegion: arguments.get(self.divideByRegion) ?? false,
                                               divideByTest: arguments.get(self.divideByTest) ?? false,
                                               useOriginalFileName: arguments.get(self.useOriginalFileName) ?? false,
+                                              useASCLocaleFormat: arguments.get(self.useASCLocaleFormat) ?? false,
                                               attachmentFilter: {
                                                 return xcparseUTIConforms($0.uniformTypeIdentifier, toUTI: "public.image")
         })
