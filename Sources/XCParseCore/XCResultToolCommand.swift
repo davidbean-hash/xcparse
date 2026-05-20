@@ -63,11 +63,13 @@ open class XCResultToolCommand {
         var id: String = ""
         var outputPath: String = ""
         var type: ExportType = ExportType.file
+        var timestamp: Date?
         
         public init(withXCResult xcresult: XCResult, id: String, outputPath: String, type: ExportType) {
             self.id = id
             self.outputPath = outputPath
             self.type = type
+            self.timestamp = nil
 
             var processArgs = xcresultToolArguments
             processArgs.append(contentsOf: ["export",
@@ -98,6 +100,7 @@ open class XCResultToolCommand {
                 let attachmentOutputPath = URL.init(fileURLWithPath: outputPath).appendingPathComponent(filename)
                 self.outputPath = attachmentOutputPath.path
             }
+            self.timestamp = attachment.timestamp
 
             var processArgs = xcresultToolArguments
             processArgs.append(contentsOf: ["export",
@@ -110,6 +113,18 @@ open class XCResultToolCommand {
 
             let process = TSCBasic.Process(arguments: processArgs)
             super.init(withXCResult: xcresult, process: process)
+        }
+
+        @discardableResult override public func run() -> TSCBasic.ProcessResult? {
+            let result = super.run()
+
+            // Set the file modification date to match the attachment timestamp
+            if let timestamp = self.timestamp, !self.outputPath.isEmpty {
+                let attributes: [FileAttributeKey: Any] = [.modificationDate: timestamp]
+                try? FileManager.default.setAttributes(attributes, ofItemAtPath: self.outputPath)
+            }
+
+            return result
         }
     }
 
