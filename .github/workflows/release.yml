@@ -1,0 +1,52 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+      - '[0-9]+.[0-9]+.[0-9]+'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Show Swift version
+      run: swift --version
+
+    - name: Build release binary
+      run: swift build -c release --disable-sandbox
+
+    - name: Get binary path
+      id: binary
+      run: echo "path=$(swift build -c release --show-bin-path)/xcparse" >> $GITHUB_OUTPUT
+
+    - name: Create release archive
+      run: |
+        BINARY_PATH="${{ steps.binary.outputs.path }}"
+        cd "$(dirname "$BINARY_PATH")"
+        zip -j xcparse-macos.zip xcparse
+
+    - name: Compute SHA256 checksums
+      id: checksums
+      run: |
+        BINARY_PATH="${{ steps.binary.outputs.path }}"
+        BIN_DIR="$(dirname "$BINARY_PATH")"
+        cd "$BIN_DIR"
+        shasum -a 256 xcparse-macos.zip > xcparse-macos.zip.sha256
+        shasum -a 256 xcparse >> xcparse-macos.zip.sha256
+        echo "checksum_file=$BIN_DIR/xcparse-macos.zip.sha256" >> $GITHUB_OUTPUT
+        echo "archive_file=$BIN_DIR/xcparse-macos.zip" >> $GITHUB_OUTPUT
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        generate_release_notes: true
+        files: |
+          ${{ steps.checksums.outputs.archive_file }}
+          ${{ steps.checksums.outputs.checksum_file }}

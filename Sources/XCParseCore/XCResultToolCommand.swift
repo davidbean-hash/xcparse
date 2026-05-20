@@ -63,11 +63,13 @@ open class XCResultToolCommand {
         var id: String = ""
         var outputPath: String = ""
         var type: ExportType = ExportType.file
+        var timestamp: Date?
         
         public init(withXCResult xcresult: XCResult, id: String, outputPath: String, type: ExportType) {
             self.id = id
             self.outputPath = outputPath
             self.type = type
+            self.timestamp = nil
 
             var processArgs = xcresultToolArguments
             processArgs.append(contentsOf: ["export",
@@ -81,15 +83,24 @@ open class XCResultToolCommand {
             super.init(withXCResult: xcresult, process: process)
         }
 
-        public init(withXCResult xcresult: XCResult, attachment: ActionTestAttachment, outputPath: String) {
+        public init(withXCResult xcresult: XCResult, attachment: ActionTestAttachment, outputPath: String, useOriginalFileName: Bool = false) {
             if let identifier = attachment.payloadRef?.id {
                 self.id = identifier;
 
                 // Now let's figure out the filename & path
-                let filename = attachment.filename ?? identifier
+                var filename: String
+                if useOriginalFileName, let originalName = attachment.name {
+                    // Use original attachment name, preserving the file extension from the generated filename
+                    let ext = (attachment.filename as NSString?)?.pathExtension ?? ""
+                    let nameWithoutExt = (originalName as NSString).deletingPathExtension
+                    filename = ext.isEmpty ? originalName : "\(nameWithoutExt).\(ext)"
+                } else {
+                    filename = attachment.filename ?? identifier
+                }
                 let attachmentOutputPath = URL.init(fileURLWithPath: outputPath).appendingPathComponent(filename)
                 self.outputPath = attachmentOutputPath.path
             }
+            self.timestamp = attachment.timestamp
 
             var processArgs = xcresultToolArguments
             processArgs.append(contentsOf: ["export",
@@ -102,6 +113,18 @@ open class XCResultToolCommand {
 
             let process = TSCBasic.Process(arguments: processArgs)
             super.init(withXCResult: xcresult, process: process)
+        }
+
+        @discardableResult override public func run() -> TSCBasic.ProcessResult? {
+            let result = super.run()
+
+            // Set the file modification date to match the attachment timestamp
+            if let timestamp = self.timestamp, !self.outputPath.isEmpty {
+                let attributes: [FileAttributeKey: Any] = [.modificationDate: timestamp]
+                try? FileManager.default.setAttributes(attributes, ofItemAtPath: self.outputPath)
+            }
+
+            return result
         }
     }
 

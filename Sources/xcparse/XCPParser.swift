@@ -21,12 +21,15 @@ struct XCResultToolCompatability {
 
 struct AttachmentExportOptions {
     var addTestScreenshotsDirectory: Bool = false
+    var divideByTargetIdentifier: Bool = false
     var divideByTargetModel: Bool = false
     var divideByTargetOS: Bool = false
     var divideByTestPlanConfig: Bool = false
     var divideByLanguage: Bool = false
     var divideByRegion: Bool = false
     var divideByTest: Bool = false
+    var useOriginalFileName: Bool = false
+    var useASCLocaleFormat: Bool = false
 
     var xcresulttoolCompatability = XCResultToolCompatability()
 
@@ -58,7 +61,17 @@ struct AttachmentExportOptions {
             modelName = "iPhone XR"
         }
 
-        if self.divideByTargetModel == true, self.divideByTargetOS == true {
+        if self.divideByTargetIdentifier {
+            if self.divideByTargetModel == true, self.divideByTargetOS == true {
+                targetDeviceFolderName = "\(modelName) (\(deviceRecord.operatingSystemVersion)) [\(deviceRecord.identifier)]"
+            } else if self.divideByTargetModel {
+                targetDeviceFolderName = "\(modelName) [\(deviceRecord.identifier)]"
+            } else if self.divideByTargetOS {
+                targetDeviceFolderName = "\(deviceRecord.operatingSystemVersion) [\(deviceRecord.identifier)]"
+            } else {
+                targetDeviceFolderName = deviceRecord.identifier
+            }
+        } else if self.divideByTargetModel == true, self.divideByTargetOS == true {
             targetDeviceFolderName = modelName + " (\(deviceRecord.operatingSystemVersion))"
         } else if self.divideByTargetModel {
             targetDeviceFolderName = modelName
@@ -101,7 +114,12 @@ struct AttachmentExportOptions {
         let testLanguage = testableSummary.testLanguage ?? "System Language"
         let testRegion = testableSummary.testRegion ?? "System Region"
         if self.divideByLanguage == true, self.divideByRegion == true {
-            languageRegionDirectoryName = "\(testLanguage) (\(testRegion))"
+            if self.useASCLocaleFormat {
+                // App Store Connect format: "en-US" instead of "en (US)"
+                languageRegionDirectoryName = "\(testLanguage)-\(testRegion)"
+            } else {
+                languageRegionDirectoryName = "\(testLanguage) (\(testRegion))"
+            }
         } else if self.divideByLanguage == true {
             languageRegionDirectoryName = testLanguage
         } else if self.divideByRegion == true {
@@ -243,8 +261,25 @@ class XCPParser {
                             continue
                         }
 
-                        let filteredChildActivities = childActivitySummaries.filter(options.activitySummaryFilter)
-                        let filteredAttachments = filteredChildActivities.flatMap { $0.attachments.filter(options.attachmentFilter) }
+                        // When filtering by activity type, also include attachments from
+                        // descendant subactivities of matching activities (e.g. attachmentContainer
+                        // children of testAssertionFailure activities in Xcode 14.2+)
+                        var filteredAttachments: [ActionTestAttachment] = []
+                        let topLevelActivities = testSummary.activitySummaries
+                        func collectAttachments(from activities: [ActionTestActivitySummary], parentMatched: Bool) {
+                            for activity in activities {
+                                let matches = options.activitySummaryFilter(activity)
+                                if matches || parentMatched {
+                                    filteredAttachments.append(contentsOf: activity.attachments.filter(options.attachmentFilter))
+                                }
+                                collectAttachments(from: activity.subactivities, parentMatched: matches || parentMatched)
+                            }
+                        }
+                        collectAttachments(from: topLevelActivities, parentMatched: false)
+
+                        // Also collect attachments from failure summaries (e.g. XCTIssue attachments)
+                        let failureAttachments = testSummary.failureSummaries.flatMap { $0.attachments.filter(options.attachmentFilter) }
+                        filteredAttachments.append(contentsOf: failureAttachments)
 
                         let testSummaryScreenshotURL = options.screenshotDirectoryURL(testSummary, forBaseURL: testableSummaryScreenshotDirectoryURL)
                         if testSummaryScreenshotURL.createDirectoryIfNecessary(createIntermediates: true) != true {
@@ -272,11 +307,11 @@ class XCPParser {
             let exportRelativePath = exportURL.path.replacingOccurrences(of: screenshotBaseDirectoryURL.path, with: "").trimmingCharacters(in: CharacterSet(charactersIn: "/"))
             let displayName = exportRelativePath.replacingOccurrences(of: "/", with: " - ")
 
-            self.exportAttachments(withXCResult: xcresult, toDirectory: exportURL, attachments: attachmentsToExport, displayName: displayName)
+            self.exportAttachments(withXCResult: xcresult, toDirectory: exportURL, attachments: attachmentsToExport, useOriginalFileName: options.useOriginalFileName, displayName: displayName)
         }
     }
 
-    func exportAttachments(withXCResult xcresult: XCResult, toDirectory screenshotDirectoryURL: Foundation.URL, attachments: [ActionTestAttachment], displayName: String = "") {
+    func exportAttachments(withXCResult xcresult: XCResult, toDirectory screenshotDirectoryURL: Foundation.URL, attachments: [ActionTestAttachment], useOriginalFileName: Bool = false, displayName: String = "") {
         if attachments.count <= 0 {
             return
         }
@@ -288,7 +323,7 @@ class XCPParser {
         for (index, attachment) in attachments.enumerated() {
             progressBar.update(step: index, total: attachments.count, text: "Extracting \"\(attachment.filename ?? "Unknown Filename")\"")
 
-            XCResultToolCommand.Export(withXCResult: xcresult, attachment: attachment, outputPath: screenshotDirectoryURL.path).run()
+            XCResultToolCommand.Export(withXCResult: xcresult, attachment: attachment, outputPath: screenshotDirectoryURL.path, useOriginalFileName: useOriginalFileName).run()
         }
 
         progressBar.update(step: attachments.count, total: attachments.count, text: "🎊 Export complete! 🎊")
@@ -428,6 +463,85 @@ class XCPParser {
         }
     }
 
+    func extractReport(xcresultPath: String, destination: String) throws {
+        var xcresult = XCResult(path: xcresultPath, console: self.console)
+        guard let invocationRecord = xcresult.invocationRecord else {
+            xcresult.console.writeMessage("\"\(xcresult.path)\" does not appear to be an xcresult", to: .error)
+            return
+        }
+
+        let destinationURL = URL(fileURLWithPath: destination)
+        if destinationURL.createDirectoryIfNecessary() != true {
+            return
+        }
+
+        var report: [[String: Any]] = []
+
+        let actions = invocationRecord.actions.filter { $0.actionResult.testsRef != nil }
+        for action in actions {
+            guard let testRef = action.actionResult.testsRef else { continue }
+
+            guard let testPlanRunSummaries: ActionTestPlanRunSummaries = testRef.modelFromReference(withXCResult: xcresult) else {
+                continue
+            }
+
+            for testPlanRun in testPlanRunSummaries.summaries {
+                for testableSummary in testPlanRun.testableSummaries {
+                    let testMap = testableSummary.flattenedTestSummaryMap(withXCResult: xcresult)
+                    for (testSummary, _) in testMap {
+                        var testEntry: [String: Any] = [
+                            "name": testSummary.name ?? "Unknown",
+                            "identifier": testSummary.identifier ?? "",
+                            "status": testSummary.testStatus,
+                            "duration": testSummary.duration,
+                        ]
+
+                        var failures: [[String: Any]] = []
+                        for failure in testSummary.failureSummaries {
+                            var failureEntry: [String: Any] = [
+                                "message": failure.message ?? "",
+                                "fileName": failure.fileName,
+                                "lineNumber": failure.lineNumber,
+                            ]
+                            if let issueType = failure.issueType {
+                                failureEntry["issueType"] = issueType
+                            }
+                            failures.append(failureEntry)
+                        }
+                        if !failures.isEmpty {
+                            testEntry["failures"] = failures
+                        }
+
+                        var attachmentNames: [String] = []
+                        let allActivities = testSummary.allChildActivitySummaries()
+                        for activity in allActivities {
+                            for attachment in activity.attachments {
+                                attachmentNames.append(attachment.filename ?? attachment.name ?? "Unknown")
+                            }
+                        }
+                        if !attachmentNames.isEmpty {
+                            testEntry["attachments"] = attachmentNames
+                        }
+
+                        if let targetName = testableSummary.targetName {
+                            testEntry["target"] = targetName
+                        }
+                        if let testPlanName = testPlanRun.name {
+                            testEntry["testPlan"] = testPlanName
+                        }
+
+                        report.append(testEntry)
+                    }
+                }
+            }
+        }
+
+        let jsonData = try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])
+        let reportURL = destinationURL.appendingPathComponent("test_report.json")
+        try jsonData.write(to: reportURL)
+        self.console.writeMessage("🎊 Test report exported to \(reportURL.path) 🎊")
+    }
+
     func printVersion() {
         self.console.writeMessage("\(xcparseCurrentVersion)")
     }
@@ -478,6 +592,7 @@ class XCPParser {
         registry.register(command: AttachmentsCommand.self)
         registry.register(command: VersionCommand.self)
         registry.register(command: ConverterCommand.self)
+        registry.register(command: ReportCommand.self)
         registry.run()
 
         self.printLatestVersionInfoIfNeeded()

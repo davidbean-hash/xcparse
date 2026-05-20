@@ -35,7 +35,15 @@ public extension Version {
                     if let xcresulttoolVersionInt = Int(xcresulttoolVersionString) {
                         xcresulttoolVersion = Version(xcresulttoolVersionInt, 0, 0)
                     } else {
-                        xcresulttoolVersion = Version(string: xcresulttoolVersionString)
+                        // Handle "major.minor" format (e.g. "24038.1" from Xcode 26 beta)
+                        let versionParts = xcresulttoolVersionString.split(separator: ".")
+                        if versionParts.count == 2,
+                           let major = Int(versionParts[0]),
+                           let minor = Int(versionParts[1]) {
+                            xcresulttoolVersion = Version(major, minor, 0)
+                        } else {
+                            xcresulttoolVersion = Version(string: xcresulttoolVersionString)
+                        }
                     }
 
                     return xcresulttoolVersion

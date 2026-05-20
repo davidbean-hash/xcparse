@@ -9,6 +9,7 @@
 import Foundation
 import TSCBasic
 import TSCUtility
+import XCParseCore
 
 struct AttachmentsCommand: Command {
     let command = "attachments"
@@ -19,6 +20,7 @@ struct AttachmentsCommand: Command {
     var outputPath: PositionalArgument<PathArgument>
     var verbose: OptionArgument<Bool>
 
+    var divideByIdentifier: OptionArgument<Bool>
     var divideByModel: OptionArgument<Bool>
     var divideByOS: OptionArgument<Bool>
     var divideByTestRun: OptionArgument<Bool>
@@ -27,6 +29,8 @@ struct AttachmentsCommand: Command {
     var divideByRegion: OptionArgument<Bool>
     var divideByTest: OptionArgument<Bool>
 
+    var useOriginalFileName: OptionArgument<Bool>
+    var useASCLocaleFormat: OptionArgument<Bool>
     var utiWhitelist: OptionArgument<[String]>
     var activityTypeWhitelist: OptionArgument<[String]>
 
@@ -38,6 +42,7 @@ struct AttachmentsCommand: Command {
                                    optional: true, usage: "Folder to export results to", completion: .filename)
         verbose = subparser.add(option: "--verbose", shortName: "-v", kind: Bool.self, usage: "Enable verbose logging")
 
+        divideByIdentifier = subparser.add(option: "--identifier", shortName: nil, kind: Bool.self, usage: "Divide attachments by device identifier (UDID)")
         divideByModel = subparser.add(option: "--model", shortName: nil, kind: Bool.self, usage: "Divide attachments by model")
         divideByOS = subparser.add(option: "--os", shortName: nil, kind: Bool.self, usage: "Divide attachments by OS")
         divideByTestRun = subparser.add(option: "--test-run", shortName: nil, kind: Bool.self, usage: "Deprecated. Use --test-plan-config")
@@ -46,6 +51,8 @@ struct AttachmentsCommand: Command {
         divideByRegion = subparser.add(option: "--region", shortName: nil, kind: Bool.self, usage: "Divide attachments by test region")
         divideByTest = subparser.add(option: "--test", shortName: nil, kind: Bool.self, usage: "Divide attachments by test")
 
+        useOriginalFileName = subparser.add(option: "--original-name", shortName: nil, kind: Bool.self, usage: "Use the original attachment name instead of the generated filename")
+        useASCLocaleFormat = subparser.add(option: "--asc-locale", shortName: nil, kind: Bool.self, usage: "Use App Store Connect locale format for language/region directory names (e.g. 'en-US' instead of 'en (US)')")
         utiWhitelist = subparser.add(option: "--uti", shortName: nil, kind: [String].self, strategy: .upToNextOption,
                                      usage: "Whitelist of uniform type identifiers (UTI) attachments must conform to [optional, example: \"--uti public.image public.plain-text\"]")
         activityTypeWhitelist = subparser.add(option: "--activity-type", shortName: nil, kind: [String].self, strategy: .upToNextOption,
@@ -80,17 +87,20 @@ struct AttachmentsCommand: Command {
 
         // Let's set up our export options
         var options = AttachmentExportOptions(addTestScreenshotsDirectory: false,
+                                              divideByTargetIdentifier: arguments.get(self.divideByIdentifier) ?? false,
                                               divideByTargetModel: arguments.get(self.divideByModel) ?? false,
                                               divideByTargetOS: arguments.get(self.divideByOS) ?? false,
                                               divideByTestPlanConfig: arguments.get(self.divideByTestPlanConfig) ?? (arguments.get(self.divideByTestRun) ?? false),
                                               divideByLanguage: arguments.get(self.divideByLanguage) ?? false,
                                               divideByRegion: arguments.get(self.divideByRegion) ?? false,
-                                              divideByTest: arguments.get(self.divideByTest) ?? false)
+                                              divideByTest: arguments.get(self.divideByTest) ?? false,
+                                              useOriginalFileName: arguments.get(self.useOriginalFileName) ?? false,
+                                              useASCLocaleFormat: arguments.get(self.useASCLocaleFormat) ?? false)
         if let allowedUTIsToExport = arguments.get(self.utiWhitelist) {
             options.attachmentFilter = {
-                let attachmentUTI = $0.uniformTypeIdentifier as CFString
+                let attachmentUTI = $0.uniformTypeIdentifier
                 for allowedUTI in allowedUTIsToExport {
-                    if UTTypeConformsTo(attachmentUTI, allowedUTI as CFString) {
+                    if xcparseUTIConforms(attachmentUTI, toUTI: allowedUTI) {
                         return true
                     }
                 }

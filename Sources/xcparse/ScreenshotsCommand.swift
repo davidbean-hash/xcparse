@@ -9,6 +9,7 @@
 import Foundation
 import TSCBasic
 import TSCUtility
+import XCParseCore
 
 struct ScreenshotsCommand: Command {
     let command = "screenshots"
@@ -20,6 +21,7 @@ struct ScreenshotsCommand: Command {
     var verbose: OptionArgument<Bool>
 
     var addTestScreenshotDirectory: OptionArgument<Bool>
+    var divideByIdentifier: OptionArgument<Bool>
     var divideByModel: OptionArgument<Bool>
     var divideByOS: OptionArgument<Bool>
     var divideByTestRun: OptionArgument<Bool>
@@ -28,6 +30,8 @@ struct ScreenshotsCommand: Command {
     var divideByRegion: OptionArgument<Bool>
     var divideByTest: OptionArgument<Bool>
 
+    var useOriginalFileName: OptionArgument<Bool>
+    var useASCLocaleFormat: OptionArgument<Bool>
     var testStatusWhitelist: OptionArgument<[String]>
     var activityTypeWhitelist: OptionArgument<[String]>
 
@@ -40,6 +44,7 @@ struct ScreenshotsCommand: Command {
         verbose = subparser.add(option: "--verbose", shortName: "-v", kind: Bool.self, usage: "Enable verbose logging")
 
         addTestScreenshotDirectory = subparser.add(option: "--legacy", shortName: nil, kind: Bool.self, usage: "Create \"testScreenshots\" directory in outputDirectory & put screenshots in there")
+        divideByIdentifier = subparser.add(option: "--identifier", shortName: nil, kind: Bool.self, usage: "Divide screenshots by device identifier (UDID)")
         divideByModel = subparser.add(option: "--model", shortName: nil, kind: Bool.self, usage: "Divide screenshots by model")
         divideByOS = subparser.add(option: "--os", shortName: nil, kind: Bool.self, usage: "Divide screenshots by OS")
         divideByTestRun = subparser.add(option: "--test-run", shortName: nil, kind: Bool.self, usage: "Deprecated. Use --test-plan-config")
@@ -48,6 +53,8 @@ struct ScreenshotsCommand: Command {
         divideByRegion = subparser.add(option: "--region", shortName: nil, kind: Bool.self, usage: "Divide attachments by test region")
         divideByTest = subparser.add(option: "--test", shortName: nil, kind: Bool.self, usage: "Divide screenshots by test")
 
+        useOriginalFileName = subparser.add(option: "--original-name", shortName: nil, kind: Bool.self, usage: "Use the original attachment name instead of the generated filename")
+        useASCLocaleFormat = subparser.add(option: "--asc-locale", shortName: nil, kind: Bool.self, usage: "Use App Store Connect locale format for language/region directory names (e.g. 'en-US' instead of 'en (US)')")
         testStatusWhitelist = subparser.add(option: "--test-status", shortName: nil, kind: [String].self, strategy: .upToNextOption,
                                             usage: "Whitelist of acceptable test statuses for screenshots [optional, example: \"--test-status Success Failure\"]")
         activityTypeWhitelist = subparser.add(option: "--activity-type", shortName: nil, kind: [String].self, strategy: .upToNextOption,
@@ -82,14 +89,17 @@ struct ScreenshotsCommand: Command {
 
         // Let's set up our export options
         var options = AttachmentExportOptions(addTestScreenshotsDirectory: arguments.get(self.addTestScreenshotDirectory) ?? false,
+                                              divideByTargetIdentifier: arguments.get(self.divideByIdentifier) ?? false,
                                               divideByTargetModel: arguments.get(self.divideByModel) ?? false,
                                               divideByTargetOS: arguments.get(self.divideByOS) ?? false,
                                               divideByTestPlanConfig: arguments.get(self.divideByTestPlanConfig) ?? (arguments.get(self.divideByTestRun) ?? false),
                                               divideByLanguage: arguments.get(self.divideByLanguage) ?? false,
                                               divideByRegion: arguments.get(self.divideByRegion) ?? false,
                                               divideByTest: arguments.get(self.divideByTest) ?? false,
+                                              useOriginalFileName: arguments.get(self.useOriginalFileName) ?? false,
+                                              useASCLocaleFormat: arguments.get(self.useASCLocaleFormat) ?? false,
                                               attachmentFilter: {
-                                                return UTTypeConformsTo($0.uniformTypeIdentifier as CFString, "public.image" as CFString)
+                                                return xcparseUTIConforms($0.uniformTypeIdentifier, toUTI: "public.image")
         })
         if let allowedTestStatuses = arguments.get(self.testStatusWhitelist) {
             options.testSummaryFilter = { allowedTestStatuses.contains($0.testStatus) }
