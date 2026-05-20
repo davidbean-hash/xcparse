@@ -28,6 +28,8 @@ struct ScreenshotsCommand: Command {
     var divideByRegion: OptionArgument<Bool>
     var divideByTest: OptionArgument<Bool>
 
+    var useOriginalName: OptionArgument<Bool>
+
     var testStatusWhitelist: OptionArgument<[String]>
     var activityTypeWhitelist: OptionArgument<[String]>
 
@@ -47,6 +49,8 @@ struct ScreenshotsCommand: Command {
         divideByLanguage = subparser.add(option: "--language", shortName: nil, kind: Bool.self, usage: "Divide attachments by test language")
         divideByRegion = subparser.add(option: "--region", shortName: nil, kind: Bool.self, usage: "Divide attachments by test region")
         divideByTest = subparser.add(option: "--test", shortName: nil, kind: Bool.self, usage: "Divide screenshots by test")
+
+        useOriginalName = subparser.add(option: "--original-name", shortName: nil, kind: Bool.self, usage: "Use the original attachment name from test code instead of the UUID-based filename")
 
         testStatusWhitelist = subparser.add(option: "--test-status", shortName: nil, kind: [String].self, strategy: .upToNextOption,
                                             usage: "Whitelist of acceptable test statuses for screenshots [optional, example: \"--test-status Success Failure\"]")
@@ -88,6 +92,7 @@ struct ScreenshotsCommand: Command {
                                               divideByLanguage: arguments.get(self.divideByLanguage) ?? false,
                                               divideByRegion: arguments.get(self.divideByRegion) ?? false,
                                               divideByTest: arguments.get(self.divideByTest) ?? false,
+                                              useOriginalAttachmentName: arguments.get(self.useOriginalName) ?? false,
                                               attachmentFilter: {
                                                 return UTTypeConformsTo($0.uniformTypeIdentifier as CFString, "public.image" as CFString)
         })

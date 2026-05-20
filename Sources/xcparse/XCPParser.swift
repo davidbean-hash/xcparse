@@ -27,6 +27,7 @@ struct AttachmentExportOptions {
     var divideByLanguage: Bool = false
     var divideByRegion: Bool = false
     var divideByTest: Bool = false
+    var useOriginalAttachmentName: Bool = false
 
     var xcresulttoolCompatability = XCResultToolCompatability()
 
@@ -272,11 +273,11 @@ class XCPParser {
             let exportRelativePath = exportURL.path.replacingOccurrences(of: screenshotBaseDirectoryURL.path, with: "").trimmingCharacters(in: CharacterSet(charactersIn: "/"))
             let displayName = exportRelativePath.replacingOccurrences(of: "/", with: " - ")
 
-            self.exportAttachments(withXCResult: xcresult, toDirectory: exportURL, attachments: attachmentsToExport, displayName: displayName)
+            self.exportAttachments(withXCResult: xcresult, toDirectory: exportURL, attachments: attachmentsToExport, displayName: displayName, useOriginalAttachmentName: options.useOriginalAttachmentName)
         }
     }
 
-    func exportAttachments(withXCResult xcresult: XCResult, toDirectory screenshotDirectoryURL: Foundation.URL, attachments: [ActionTestAttachment], displayName: String = "") {
+    func exportAttachments(withXCResult xcresult: XCResult, toDirectory screenshotDirectoryURL: Foundation.URL, attachments: [ActionTestAttachment], displayName: String = "", useOriginalAttachmentName: Bool = false) {
         if attachments.count <= 0 {
             return
         }
@@ -288,7 +289,7 @@ class XCPParser {
         for (index, attachment) in attachments.enumerated() {
             progressBar.update(step: index, total: attachments.count, text: "Extracting \"\(attachment.filename ?? "Unknown Filename")\"")
 
-            XCResultToolCommand.Export(withXCResult: xcresult, attachment: attachment, outputPath: screenshotDirectoryURL.path).run()
+            XCResultToolCommand.Export(withXCResult: xcresult, attachment: attachment, outputPath: screenshotDirectoryURL.path, useOriginalName: useOriginalAttachmentName).run()
         }
 
         progressBar.update(step: attachments.count, total: attachments.count, text: "🎊 Export complete! 🎊")
