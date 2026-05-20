@@ -29,16 +29,46 @@ public extension Version {
                 let trimmedString = string.trimmingCharacters(in: .whitespacesAndNewlines)
                 if trimmedString.hasPrefix("xcresulttool version ") {
                     let xcresulttoolVersionString = trimmedString.replacingOccurrences(of: "xcresulttool version ", with: "")
-                    // Check to see if we can convert it to a number
-                    var xcresulttoolVersion: Version?
 
                     if let xcresulttoolVersionInt = Int(xcresulttoolVersionString) {
-                        xcresulttoolVersion = Version(xcresulttoolVersionInt, 0, 0)
-                    } else {
-                        xcresulttoolVersion = Version(string: xcresulttoolVersionString)
+                        return Version(xcresulttoolVersionInt, 0, 0)
                     }
 
-                    return xcresulttoolVersion
+                    if let parsedVersion = Version(string: xcresulttoolVersionString) {
+                        return parsedVersion
+                    }
+
+                    let dotComponents = xcresulttoolVersionString.components(separatedBy: ".")
+                    if let majorString = dotComponents.first, let major = Int(majorString) {
+                        let minor = dotComponents.count > 1 ? Int(dotComponents[1]) ?? 0 : 0
+                        let patch = dotComponents.count > 2 ? Int(dotComponents[2]) ?? 0 : 0
+                        return Version(major, minor, patch)
+                    }
+
+                    return nil
+                }
+            }
+
+            // Fallback: scan for any "version X.Y.Z" or "version X" pattern
+            let versionPattern = try NSRegularExpression(pattern: #"version\s+(\d+(?:\.\d+)*)"#, options: .caseInsensitive)
+            let fullOutput = xcresultVersionString.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let match = versionPattern.firstMatch(in: fullOutput, range: NSRange(fullOutput.startIndex..., in: fullOutput)),
+               let versionRange = Range(match.range(at: 1), in: fullOutput) {
+                let versionString = String(fullOutput[versionRange])
+
+                if let versionInt = Int(versionString) {
+                    return Version(versionInt, 0, 0)
+                }
+
+                if let parsedVersion = Version(string: versionString) {
+                    return parsedVersion
+                }
+
+                let dotComponents = versionString.components(separatedBy: ".")
+                if let majorString = dotComponents.first, let major = Int(majorString) {
+                    let minor = dotComponents.count > 1 ? Int(dotComponents[1]) ?? 0 : 0
+                    let patch = dotComponents.count > 2 ? Int(dotComponents[2]) ?? 0 : 0
+                    return Version(major, minor, patch)
                 }
             }
 

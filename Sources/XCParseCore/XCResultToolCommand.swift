@@ -190,7 +190,7 @@ open class XCResultToolCommand {
 
 private let shouldAddLegacyFlag: Bool = {
     guard let xcresulttoolVersion = Version.xcresulttool() else {
-      return false
+      return true
     }
 
     let versionWithDeprecatedAPIs = Version.xcresulttoolWithDeprecatedAPIs()
