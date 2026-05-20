@@ -89,8 +89,6 @@ open class XCResultToolCommand {
                 let filename = attachment.filename ?? identifier
                 let attachmentOutputPath = URL.init(fileURLWithPath: outputPath).appendingPathComponent(filename)
                 self.outputPath = attachmentOutputPath.path
-            } else {
-                xcresult.console.writeMessage("Warning: Skipping attachment \"\(attachment.filename ?? "Unknown")\" — payloadRef is nil, nothing to export", to: .standard)
             }
 
             var processArgs = xcresultToolArguments
