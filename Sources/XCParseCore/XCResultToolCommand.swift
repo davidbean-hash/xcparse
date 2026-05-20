@@ -89,9 +89,9 @@ open class XCResultToolCommand {
                 var filename = attachment.filename ?? identifier
 
                 if useOriginalName, let originalName = attachment.name {
-                    // Preserve file extension from the original filename or derive from UTI
                     let originalExtension = (filename as NSString).pathExtension
-                    if !originalExtension.isEmpty {
+                    let nameExtension = (originalName as NSString).pathExtension
+                    if !originalExtension.isEmpty && nameExtension.lowercased() != originalExtension.lowercased() {
                         filename = (originalName as NSString).appendingPathExtension(originalExtension) ?? originalName
                     } else {
                         filename = originalName
