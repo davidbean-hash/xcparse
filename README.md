@@ -35,6 +35,18 @@ Want to use this in [Bitrise](https://www.bitrise.io)? We have an [xcparse Bitri
 
 See our [Bitrise step's README](https://github.com/ChargePoint/bitrise-step-xcparse/blob/master/README.md) for more information.
 
+### GitHub Releases
+
+Download the pre-built binary from the [Releases page](https://github.com/ChargePoint/xcparse/releases):
+
+```shell
+# Download and extract
+tar -xzf xcparse-<version>-macos-universal.tar.gz
+
+# Move to a directory in your PATH
+sudo mv xcparse /usr/local/bin/
+```
+
 ## Usage
 
 ```
