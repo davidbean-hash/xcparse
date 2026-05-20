@@ -285,31 +285,10 @@ class XCPParser {
         // When using original names, pre-compute unique filenames to avoid overwrites
         var filenameOverrides: [Int: String] = [:]
         if useOriginalAttachmentName {
-            var usedNames: [String: Int] = [:]
-            for (index, attachment) in attachments.enumerated() {
-                let baseName = attachment.name ?? attachment.filename ?? attachment.payloadRef?.id ?? "attachment"
-                let fileExtension = (attachment.filename as NSString?)?.pathExtension ?? ""
-                let nameExtension = (baseName as NSString).pathExtension
-
-                var candidateName: String
-                if !fileExtension.isEmpty && nameExtension.lowercased() != fileExtension.lowercased() {
-                    candidateName = (baseName as NSString).appendingPathExtension(fileExtension) ?? baseName
-                } else {
-                    candidateName = baseName
-                }
-
-                let count = usedNames[candidateName, default: 0]
-                usedNames[candidateName] = count + 1
-                if count > 0 {
-                    let nameWithoutExt = (candidateName as NSString).deletingPathExtension
-                    let ext = (candidateName as NSString).pathExtension
-                    if !ext.isEmpty {
-                        candidateName = "\(nameWithoutExt)_\(count).\(ext)"
-                    } else {
-                        candidateName = "\(nameWithoutExt)_\(count)"
-                    }
-                }
-                filenameOverrides[index] = candidateName
+            let attachmentInfos = attachments.map { (originalName: $0.name, filename: $0.filename, payloadId: $0.payloadRef?.id) }
+            let resolvedNames = AttachmentNameResolver.resolveAndDeduplicateNames(attachments: attachmentInfos)
+            for (index, name) in resolvedNames.enumerated() {
+                filenameOverrides[index] = name
             }
         }
 

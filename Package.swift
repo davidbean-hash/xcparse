@@ -42,7 +42,7 @@ let package = Package(
             path: "Tests/Utility"),
         .testTarget(
             name: "xcparseTests",
-            dependencies: ["xcparse", "testUtility"]),
+            dependencies: ["xcparse", "XCParseCore", "testUtility"]),
         .testTarget(
             name: "appThinningConverterTests",
             dependencies: ["Converter", "testUtility"]),
