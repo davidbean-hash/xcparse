@@ -1,8 +1,10 @@
 # xcparse
 
-A command line tool to extract code coverage & screenshots from Xcode 11 XCResult files.
+A command line tool to extract code coverage, screenshots, test reports & attachments from Xcode XCResult files.
 
-To learn more about Xcode 11's xcresult format, read [Rishab Sukumar's post on the ChargePoint Engineering blog](https://www.chargepoint.com/engineering/xcparse/)
+To learn more about Xcode's xcresult format, read [Rishab Sukumar's post on the ChargePoint Engineering blog](https://www.chargepoint.com/engineering/xcparse/)
+
+[![CI](https://github.com/ChargePoint/xcparse/actions/workflows/ci.yml/badge.svg)](https://github.com/ChargePoint/xcparse/actions/workflows/ci.yml)
 
 ## Installation 
 
@@ -59,12 +61,15 @@ Options available include:
 
 | Option                   | Description                             |
 |--------------------------|-----------------------------------------|
+| ```--identifier```       | Divide by device identifier (UDID)      |
 | ```--model```            | Divide by test target model             | 
 | ```--os```               | Divide by test target operating system  | 
 | ```--test-plan-config``` | Divide by test run configuration        |
 | ```--language```         | Divide by test language                 |
 | ```--region```           | Divide by test region                   |
 | ```--test```             | Divide by test                          |
+| ```--original-name```    | Use original attachment name            |
+| ```--asc-locale```       | Use App Store Connect locale format (e.g. `en-US`) |
 
 See ```xcparse screenshots --help``` for a full-listing
 
@@ -167,3 +172,48 @@ xcparse screenshots --help
 ```
 
 Learn about all the options we didn't mention with ```--help```!
+
+### Report
+
+```
+xcparse report /path/to/Test.xcresult /path/to/outputDirectory
+```
+
+This will export a `test_report.json` file containing structured test results including test name, identifier, status, duration, failures with file/line info, attachment names, and test plan information.
+
+## Troubleshooting
+
+### Missing XCTIssue Attachments
+
+If screenshots or other attachments added via `XCTIssue` are not being exported, ensure you're using a version of xcparse that includes the failure summary attachment extraction fix. Attachments added to `XCTIssue` instances are stored in the test's failure summaries rather than activity summaries.
+
+### Xcode Version Compatibility
+
+- **Xcode 14.2+**: The `--activity-type testAssertionFailure` filter now correctly finds screenshots in nested subactivities.
+- **Xcode 26 beta**: Version strings with `major.minor` format (e.g. `24038.1`) are now parsed correctly.
+
+### Homebrew Updates
+
+To update xcparse via Homebrew:
+
+```shell
+brew update
+brew upgrade xcparse
+```
+
+The Homebrew formula is updated automatically when new GitHub releases are published (see `.github/workflows/release.yml`).
+
+### Linux Support
+
+The package can be built on Linux with `swift build`. Note that `xcresulttool` is only available on macOS, so export functionality requires macOS. The library and model types can be used on Linux for processing xcresult data.
+
+## Contributing
+
+Contributions are welcome! Please open an issue or pull request on GitHub.
+
+1. Fork the repository
+2. Create your feature branch: `git checkout -b feature/my-new-feature`
+3. Build and test: `swift build && swift test`
+4. Commit your changes: `git commit -am 'Add some feature'`
+5. Push to the branch: `git push origin feature/my-new-feature`
+6. Create a Pull Request
