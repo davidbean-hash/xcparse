@@ -32,10 +32,11 @@ public extension Foundation.URL {
                 return false
             }
         } else {
-            if createIntermediates == true {
-                console.shellCommand(["mkdir", "-p", self.path])
-            } else {
-                console.shellCommand(["mkdir", self.path])
+            do {
+                try FileManager.default.createDirectory(at: self, withIntermediateDirectories: createIntermediates, attributes: nil)
+            } catch {
+                console.writeMessage("Failed to create directory at \(self.path): \(error)", to: .error)
+                return false
             }
         }
 

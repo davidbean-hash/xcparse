@@ -23,6 +23,7 @@ open class Reference : Codable {
         targetType = try container.decodeXCResultObjectIfPresent(forKey: .targetType)
     }
 
+    #if os(macOS)
     public func modelFromReference<T: Codable>(withXCResult xcresult: XCResult) -> T? {
         if self.targetType?.getType() != T.self {
             return nil
@@ -44,4 +45,5 @@ open class Reference : Codable {
             return nil
         }
     }
+    #endif
 }

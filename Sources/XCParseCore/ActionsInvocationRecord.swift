@@ -34,6 +34,7 @@ public class ActionsInvocationRecord : Codable {
         archive = try container.decodeXCResultObjectIfPresent(forKey: .archive)
     }
 
+    #if os(macOS)
     class public func recordFromXCResult(_ xcresult: XCResult) -> ActionsInvocationRecord? {
         let xcresultURL = URL(fileURLWithPath: xcresult.path)
         if xcresultURL.fileExistsAsDirectory() == false {
@@ -65,4 +66,5 @@ public class ActionsInvocationRecord : Codable {
             return nil
         }
     }
+    #endif
 }

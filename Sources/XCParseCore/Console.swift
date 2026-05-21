@@ -7,7 +7,6 @@
 //
 
 import Foundation
-import TSCBasic
 
 public enum OutputType {
   case error
@@ -39,15 +38,24 @@ open class Console {
     
     // MARK: -
     // MARK: Shell
+    #if os(macOS)
     @discardableResult public func shellCommand(_ command: [String]) -> String {
+        guard !command.isEmpty else { return "" }
         self.writeMessage("Command: \(command.joined(separator: " "))\n", to: .verbose)
 
-        let process = TSCBasic.Process(arguments: command)
-        do {
-            try process.launch()
-            let result = try process.waitUntilExit()
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.arguments = command
 
-            let retval = try result.utf8Output()
+        let pipe = Pipe()
+        process.standardOutput = pipe
+
+        do {
+            try process.run()
+
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
+            let retval = String(data: data, encoding: .utf8) ?? ""
             self.writeMessage(retval, to: .verbose)
             return retval
         } catch {
@@ -55,6 +63,7 @@ open class Console {
             return ""
         }
     }
+    #endif
     
     public func getInput() -> String {
       let keyboard = FileHandle.standardInput
