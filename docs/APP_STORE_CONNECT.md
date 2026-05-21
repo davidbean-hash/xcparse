@@ -212,7 +212,22 @@ NOW=$(date +%s)
 EXP=$((NOW + 1200))
 PAYLOAD=$(printf '{"iss":"%s","iat":%d,"exp":%d,"aud":"appstoreconnect-v1"}' "$ISSUER_ID" "$NOW" "$EXP" | openssl base64 -e -A | tr '+/' '-_' | tr -d '=')
 
-SIGNATURE=$(printf '%s.%s' "$HEADER" "$PAYLOAD" | openssl dgst -sha256 -sign "$PRIVATE_KEY_PATH" | openssl base64 -e -A | tr '+/' '-_' | tr -d '=')
+# openssl dgst produces DER-encoded ECDSA, but JWT ES256 requires raw (r||s).
+# Convert DER to raw 64-byte signature using Python:
+DER_SIG=$(printf '%s.%s' "$HEADER" "$PAYLOAD" | openssl dgst -sha256 -sign "$PRIVATE_KEY_PATH")
+SIGNATURE=$(printf '%s' "$DER_SIG" | python3 -c "
+import sys
+der = sys.stdin.buffer.read()
+assert der[0] == 0x30
+idx = 2
+assert der[idx] == 0x02
+r_len = der[idx+1]; r = der[idx+2:idx+2+r_len]; idx += 2 + r_len
+assert der[idx] == 0x02
+s_len = der[idx+1]; s = der[idx+2:idx+2+s_len]
+r = r[-32:].rjust(32, b'\x00')
+s = s[-32:].rjust(32, b'\x00')
+sys.stdout.buffer.write(r + s)
+" | openssl base64 -e -A | tr '+/' '-_' | tr -d '=')
 
 JWT="${HEADER}.${PAYLOAD}.${SIGNATURE}"
 echo "$JWT"
@@ -518,7 +533,7 @@ When uploading screenshots, you must map the device model (from xcparse folder n
 | iPhone 15 Pro | `APP_IPHONE_65` | 6.5" |
 | iPhone 14 Pro | `APP_IPHONE_65` | 6.5" |
 | iPhone 16 | `APP_IPHONE_61` | 6.1" |
-| iPhone SE (3rd generation) | `APP_IPHONE_55` | 5.5" |
+| iPhone SE (3rd generation) | `APP_IPHONE_47` | 4.7" |
 | iPhone 8 Plus | `APP_IPHONE_55` | 5.5" |
 | iPad Pro (12.9-inch) (6th generation) | `APP_IPAD_PRO_129` | 12.9" |
 | iPad Pro (12.9-inch) (3rd generation) | `APP_IPAD_PRO_3GEN_129` | 12.9" |

@@ -76,7 +76,7 @@ declare -A DEVICE_TO_DISPLAY_TYPE=(
   # 5.5" iPhones
   ["iPhone 8 Plus"]="APP_IPHONE_55"
   ["iPhone 7 Plus"]="APP_IPHONE_55"
-  ["iPhone SE (3rd generation)"]="APP_IPHONE_55"
+  ["iPhone SE (3rd generation)"]="APP_IPHONE_47"
   # 4.7" iPhones
   ["iPhone SE (2nd generation)"]="APP_IPHONE_47"
   ["iPhone 8"]="APP_IPHONE_47"
@@ -215,9 +215,28 @@ generate_jwt() {
     "$ISSUER_ID" "$now" "$exp" \
     | openssl base64 -e -A | tr '+/' '-_' | tr -d '=')
 
-  signature=$(printf '%s.%s' "$header" "$payload" \
-    | openssl dgst -sha256 -sign "$PRIVATE_KEY_PATH" \
-    | openssl base64 -e -A | tr '+/' '-_' | tr -d '=')
+  # openssl dgst produces a DER-encoded ECDSA signature, but JWT ES256
+  # requires the raw (r || s) concatenation (64 bytes for P-256).
+  local der_sig
+  der_sig=$(printf '%s.%s' "$header" "$payload" \
+    | openssl dgst -sha256 -sign "$PRIVATE_KEY_PATH")
+
+  signature=$(printf '%s' "$der_sig" | python3 -c "
+import sys
+der = sys.stdin.buffer.read()
+assert der[0] == 0x30
+idx = 2
+assert der[idx] == 0x02
+r_len = der[idx+1]
+r = der[idx+2:idx+2+r_len]
+idx += 2 + r_len
+assert der[idx] == 0x02
+s_len = der[idx+1]
+s = der[idx+2:idx+2+s_len]
+r = r[-32:].rjust(32, b'\\x00')
+s = s[-32:].rjust(32, b'\\x00')
+sys.stdout.buffer.write(r + s)
+" | openssl base64 -e -A | tr '+/' '-_' | tr -d '=')
 
   echo "${header}.${payload}.${signature}"
 }
@@ -459,9 +478,11 @@ EOF
   screenshot_id=$(echo "$reserve_response" | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['id'])")
 
   # Step 2: Upload binary parts
+  export UPLOAD_FILE_PATH="$file_path"
   echo "$reserve_response" | python3 -c "
-import sys, json, subprocess
+import os, sys, json, subprocess
 
+file_path = os.environ['UPLOAD_FILE_PATH']
 data = json.load(sys.stdin)
 operations = data['data']['attributes']['uploadOperations']
 
@@ -476,7 +497,7 @@ for op in operations:
         cmd.extend(['-H', f\"{h['name']}: {h['value']}\"])
 
     # Read the specific chunk
-    with open('${file_path}', 'rb') as f:
+    with open(file_path, 'rb') as f:
         f.seek(offset)
         chunk = f.read(length)
 
