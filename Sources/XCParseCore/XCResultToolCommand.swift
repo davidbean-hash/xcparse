@@ -7,13 +7,42 @@
 //
 
 import Foundation
-import TSCBasic
-import TSCUtility
+
+#if os(macOS)
+
+// MARK: - Process result wrapper
+
+public enum CommandExitStatus: Equatable {
+    case terminated(code: Int32)
+    case signalled(signal: Int32)
+}
+
+public struct CommandResult {
+    public let exitStatus: CommandExitStatus
+    private let outputData: Data
+    private let errorData: Data
+
+    init(exitStatus: CommandExitStatus, outputData: Data, errorData: Data) {
+        self.exitStatus = exitStatus
+        self.outputData = outputData
+        self.errorData = errorData
+    }
+
+    public func utf8Output() throws -> String {
+        return String(data: outputData, encoding: .utf8) ?? ""
+    }
+
+    public func utf8stderrOutput() throws -> String {
+        return String(data: errorData, encoding: .utf8) ?? ""
+    }
+}
+
+// MARK: - XCResultToolCommand
 
 let xcresultToolArguments = ["xcrun", "xcresulttool"]
 
 open class XCResultToolCommand {
-    let process: TSCBasic.Process
+    let arguments: [String]
 
     let xcresult: XCResult
     var console: Console {
@@ -22,17 +51,37 @@ open class XCResultToolCommand {
         }
     }
 
-    public init(withXCResult xcresult: XCResult, process: TSCBasic.Process = TSCBasic.Process(arguments: ["xcrun", "xcresulttool", "-h"])) {
+    public init(withXCResult xcresult: XCResult, arguments: [String] = ["xcrun", "xcresulttool", "-h"]) {
         self.xcresult = xcresult
-        self.process = process
+        self.arguments = arguments
     }
-    
-    @discardableResult public func run() -> TSCBasic.ProcessResult? {
-        do {
-            self.console.writeMessage("Command: \(process.arguments.joined(separator: " "))\n", to: .verbose)
 
-            try process.launch()
-            let result = try process.waitUntilExit()
+    @discardableResult public func run() -> CommandResult? {
+        guard !arguments.isEmpty else { return nil }
+
+        do {
+            self.console.writeMessage("Command: \(arguments.joined(separator: " "))\n", to: .verbose)
+
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+            process.arguments = arguments
+
+            let stdoutPipe = Pipe()
+            let stderrPipe = Pipe()
+            process.standardOutput = stdoutPipe
+            process.standardError = stderrPipe
+
+            try process.run()
+            process.waitUntilExit()
+
+            let stdoutData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
+            let stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+
+            let result = CommandResult(
+                exitStatus: .terminated(code: process.terminationStatus),
+                outputData: stdoutData,
+                errorData: stderrData
+            )
 
             let stderr = try result.utf8stderrOutput()
             if stderr != "" {
@@ -53,7 +102,7 @@ open class XCResultToolCommand {
         case raw = "raw"
         case json = "json"
     }
-    
+
     open class Export: XCResultToolCommand {
         public enum ExportType: String {
             case file = "file"
@@ -63,7 +112,7 @@ open class XCResultToolCommand {
         var id: String = ""
         var outputPath: String = ""
         var type: ExportType = ExportType.file
-        
+
         public init(withXCResult xcresult: XCResult, id: String, outputPath: String, type: ExportType) {
             self.id = id
             self.outputPath = outputPath
@@ -77,8 +126,7 @@ open class XCResultToolCommand {
                                             "--output-path", self.outputPath])
             processArgs.addLegacyFlagIfNeeded()
 
-            let process = TSCBasic.Process(arguments: processArgs)
-            super.init(withXCResult: xcresult, process: process)
+            super.init(withXCResult: xcresult, arguments: processArgs)
         }
 
         public init(withXCResult xcresult: XCResult, attachment: ActionTestAttachment, outputPath: String) {
@@ -100,8 +148,7 @@ open class XCResultToolCommand {
 
             processArgs.addLegacyFlagIfNeeded()
 
-            let process = TSCBasic.Process(arguments: processArgs)
-            super.init(withXCResult: xcresult, process: process)
+            super.init(withXCResult: xcresult, arguments: processArgs)
         }
     }
 
@@ -132,8 +179,7 @@ open class XCResultToolCommand {
             }
             processArgs.addLegacyFlagIfNeeded()
 
-            let process = TSCBasic.Process(arguments: processArgs)
-            super.init(withXCResult: xcresult, process: process)
+            super.init(withXCResult: xcresult, arguments: processArgs)
         }
     }
 
@@ -156,8 +202,7 @@ open class XCResultToolCommand {
             }
             processArgs.addLegacyFlagIfNeeded()
 
-            let process = TSCBasic.Process(arguments: processArgs)
-            super.init(withXCResult: xcresult, process: process)
+            super.init(withXCResult: xcresult, arguments: processArgs)
         }
     }
 
@@ -168,8 +213,7 @@ open class XCResultToolCommand {
             processArgs.append(contentsOf: ["metadata", "get",
                                             "--path", xcresult.path])
 
-            let process = TSCBasic.Process(arguments: processArgs)
-            super.init(withXCResult: xcresult, process: process)
+            super.init(withXCResult: xcresult, arguments: processArgs)
         }
     }
 
@@ -180,8 +224,7 @@ open class XCResultToolCommand {
             processArgs.append(contentsOf: ["version"])
 
             let xcresult = XCResult(path: "")
-            let process = TSCBasic.Process(arguments: processArgs)
-            super.init(withXCResult: xcresult, process: process)
+            super.init(withXCResult: xcresult, arguments: processArgs)
         }
     }
 }
@@ -189,11 +232,11 @@ open class XCResultToolCommand {
 // MARK: - Legacy flag
 
 private let shouldAddLegacyFlag: Bool = {
-    guard let xcresulttoolVersion = Version.xcresulttool() else {
+    guard let xcresulttoolVersion = XCPVersion.xcresulttool() else {
       return false
     }
 
-    let versionWithDeprecatedAPIs = Version.xcresulttoolWithDeprecatedAPIs()
+    let versionWithDeprecatedAPIs = XCPVersion.xcresulttoolWithDeprecatedAPIs()
 
     return xcresulttoolVersion >= versionWithDeprecatedAPIs
 }()
@@ -205,3 +248,5 @@ private extension Array where Element: StringProtocol {
     }
   }
 }
+
+#endif

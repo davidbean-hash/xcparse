@@ -7,6 +7,7 @@ let package = Package(
     name: "xcparse",
     platforms: [
        .macOS(.v10_13),
+       .iOS(.v11),
     ],
     products: [
         .executable(name: "xcparse", targets: ["xcparse"]),
@@ -32,7 +33,7 @@ let package = Package(
             dependencies: [ "XCParseCore", "SwiftToolsSupport-auto", "Converter" ]),
         .target(
             name: "XCParseCore",
-            dependencies: [ "SwiftToolsSupport-auto" ]),
+            dependencies: []),
         .target(
             name: "Converter",
             dependencies: ["XCParseCore"]),

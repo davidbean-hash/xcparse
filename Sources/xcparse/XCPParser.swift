@@ -159,12 +159,12 @@ class XCPParser {
     func checkXCResultToolCompatability(destination: String) -> XCResultToolCompatability {
         var compatability = XCResultToolCompatability()
 
-        guard let xcresulttoolVersion = Version.xcresulttool() else {
+        guard let xcresulttoolVersion = XCPVersion.xcresulttool() else {
             self.console.writeMessage("Warning: Could not determine xcresulttool version", to: .standard)
             return compatability
         }
 
-        let unicodeExport = Version.xcresulttoolCompatibleWithUnicodeExportPath()
+        let unicodeExport = XCPVersion.xcresulttoolCompatibleWithUnicodeExportPath()
         if xcresulttoolVersion < unicodeExport  {
             // For explaination, see https://github.com/ChargePoint/xcparse/issues/30
             let asciiDestinationPath = destination.lossyASCIIString() ?? destination
