@@ -107,7 +107,7 @@ jobs:
           git push origin "${BRANCH}"
 
           # Create pull request via GitHub API
-          PR_BODY="Automated PR created by the [update-homebrew workflow](https://github.com/${GH_REPO}/actions).\n\nRelease: [${TAG}](https://github.com/${GH_REPO}/releases/tag/${TAG})\nSHA256: \`${SHA256}\`"
+          PR_BODY=$(printf 'Automated PR created by the [update-homebrew workflow](https://github.com/%s/actions).\n\nRelease: [%s](https://github.com/%s/releases/tag/%s)\nSHA256: `%s`' "${GH_REPO}" "${TAG}" "${GH_REPO}" "${TAG}" "${SHA256}")
 
           jq -n \
             --arg title "Update xcparse to ${VERSION}" \
