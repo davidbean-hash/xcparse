@@ -37,15 +37,23 @@ struct AppStoreLocaleMapping {
             return language
         }
 
-        // Handle compound language codes like "es-419" — extract base language
-        let baseLanguage: String
+        // Handle compound language codes — distinguish numeric area codes from script subtags.
+        // Numeric subtags (e.g. "419" in "es-419") are UN M.49 area codes and should be
+        // replaced by the region. Alphabetic 4-letter subtags (e.g. "Hans" in "zh-Hans")
+        // are BCP 47 script tags and must be preserved.
         if language.contains("-") {
-            baseLanguage = String(language.split(separator: "-").first ?? Substring(language))
-        } else {
-            baseLanguage = language
+            let parts = language.split(separator: "-")
+            let subtag = parts.count > 1 ? String(parts[1]) : ""
+            let isNumericSubtag = !subtag.isEmpty && subtag.allSatisfy({ $0.isNumber })
+            if isNumericSubtag {
+                let baseLanguage = String(parts[0])
+                return "\(baseLanguage)-\(region)"
+            } else {
+                return language
+            }
         }
 
-        return "\(baseLanguage)-\(region)"
+        return "\(language)-\(region)"
     }
 
     /// Parses a combined "language (region)" folder name and normalizes it.

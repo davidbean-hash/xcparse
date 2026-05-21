@@ -73,6 +73,20 @@ final class AppStoreLocaleMappingTests: XCTestCase {
         XCTAssertEqual(AppStoreLocaleMapping.normalize(language: "es-419", region: nil), "es-419")
     }
 
+    func testChineseSimplifiedPreservesScriptSubtag() {
+        // zh-Hans should be preserved (script subtag, not area code)
+        XCTAssertEqual(AppStoreLocaleMapping.normalize(language: "zh-Hans", region: "CN"), "zh-Hans")
+    }
+
+    func testChineseTraditionalPreservesScriptSubtag() {
+        // zh-Hant should be preserved (script subtag, not area code)
+        XCTAssertEqual(AppStoreLocaleMapping.normalize(language: "zh-Hant", region: "TW"), "zh-Hant")
+    }
+
+    func testChineseSimplifiedNoRegion() {
+        XCTAssertEqual(AppStoreLocaleMapping.normalize(language: "zh-Hans", region: nil), "zh-Hans")
+    }
+
     // MARK: - normalizeDirectoryName tests
 
     func testNormalizeDirectoryNameNilLanguage() {
@@ -122,6 +136,9 @@ final class AppStoreLocaleMappingTests: XCTestCase {
         ("testLanguageOnlyNoRegion", testLanguageOnlyNoRegion),
         ("testNorwegianBokmalNoRegion", testNorwegianBokmalNoRegion),
         ("testCompoundLanguageCodeNoRegion", testCompoundLanguageCodeNoRegion),
+        ("testChineseSimplifiedPreservesScriptSubtag", testChineseSimplifiedPreservesScriptSubtag),
+        ("testChineseTraditionalPreservesScriptSubtag", testChineseTraditionalPreservesScriptSubtag),
+        ("testChineseSimplifiedNoRegion", testChineseSimplifiedNoRegion),
         ("testNormalizeDirectoryNameNilLanguage", testNormalizeDirectoryNameNilLanguage),
         ("testNormalizeDirectoryNameWithLanguageAndRegion", testNormalizeDirectoryNameWithLanguageAndRegion),
         ("testNormalizeDirectoryNameWithLanguageOnly", testNormalizeDirectoryNameWithLanguageOnly),
