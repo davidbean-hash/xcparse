@@ -378,23 +378,34 @@ class XCPParser {
     // MARK: - Log Formatting
 
     private func exportFormattedLog(xcresult: XCResult, logRef: Reference, to fileURL: URL) {
+        if let formatted = formattedLogString(xcresult: xcresult, logRef: logRef) {
+            do {
+                try formatted.write(to: fileURL, atomically: true, encoding: .utf8)
+                return
+            } catch {
+                self.console.writeMessage("Warning: Could not write formatted log, falling back to raw export", to: .standard)
+            }
+        }
+
+        XCResultToolCommand.Export(withXCResult: xcresult, id: logRef.id, outputPath: fileURL.path, type: .file).run()
+    }
+
+    private func formattedLogString(xcresult: XCResult, logRef: Reference) -> String? {
         guard let getResult = XCResultToolCommand.Get(withXCResult: xcresult, id: logRef.id, outputPath: "", format: .json).run() else {
-            return
+            return nil
         }
 
         do {
             let jsonString = try getResult.utf8Output()
             if getResult.exitStatus != .terminated(code: 0) || jsonString.isEmpty {
-                return
+                return nil
             }
 
             let jsonData = Data(jsonString.utf8)
             let logSection = try decodeActivityLogSection(from: jsonData)
-            let formatted = formatLogSection(logSection, indent: 0)
-            try formatted.write(to: fileURL, atomically: true, encoding: .utf8)
+            return formatLogSection(logSection, indent: 0)
         } catch {
-            self.console.writeMessage("Warning: Could not decode log as structured data, falling back to raw export", to: .standard)
-            XCResultToolCommand.Export(withXCResult: xcresult, id: logRef.id, outputPath: fileURL.path, type: .file).run()
+            return nil
         }
     }
 
