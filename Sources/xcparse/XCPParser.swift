@@ -363,29 +363,109 @@ class XCPParser {
                 XCResultToolCommand.Export(withXCResult: xcresult, id: actionDiagnosticsRef.id, outputPath: actionDiagnosticsURL.path, type: .directory).run()
             }
 
-            // TODO: Alex - note that these aren't actually log files but ActivityLogSection objects. User from StackOverflow was just exporting those
-            // out as text files as for the most party they can be human readable, but it won't match what Xcode exports if you open the XCResult
-            // and attempt to export out the log. That seems like it may involve having to create our own pretty printer similar to Xcode's to export
-            // the ActivityLogSection into a nicely human readable text file.
-            //
-            // Also note either we missed in formatDescription objects like ActivityLogCommandInvocationSection or Apple added them in later betas. We'll
-            // need to add parsing, using the same style we do for ActionTestSummaryIdentifiableObject subclasses
             if let buildResultLogRef = actionRecord.buildResult.logRef {
-//                let activityLogSectionJSON = XCResultToolCommand.Get(withXCResult: xcresult, id: buildResultLogRef.id, outputPath: "", format: .json).run()
-//                let activityLogSection = try decoder.decode(ActivityLogSection.self, from: Data(activityLogSectionJSON.utf8))
                 let buildLogURL = actionRecordDestinationURL.appendingPathComponent("build.txt")
-                XCResultToolCommand.Export(withXCResult: xcresult, id: buildResultLogRef.id, outputPath: buildLogURL.path, type: .file).run()
+                self.exportFormattedLog(xcresult: xcresult, logRef: buildResultLogRef, to: buildLogURL)
             }
 
             if let actionResultLogRef = actionRecord.actionResult.logRef {
-//                let activityLogSectionJSON = XCResultToolCommand.Get(withXCResult: xcresult, id: actionResultLogRef.id, outputPath: "", format: .json).run()
-//                let activityLogSection = try decoder.decode(ActivityLogSection.self, from: Data(activityLogSectionJSON.utf8))
                 let actionLogURL = actionRecordDestinationURL.appendingPathComponent("action.txt")
-                XCResultToolCommand.Export(withXCResult: xcresult, id: actionResultLogRef.id, outputPath: actionLogURL.path, type: .file).run()
+                self.exportFormattedLog(xcresult: xcresult, logRef: actionResultLogRef, to: actionLogURL)
             }
         }
     }
     
+    // MARK: - Log Formatting
+
+    private func exportFormattedLog(xcresult: XCResult, logRef: Reference, to fileURL: URL) {
+        if let formatted = formattedLogString(xcresult: xcresult, logRef: logRef) {
+            do {
+                try formatted.write(to: fileURL, atomically: true, encoding: .utf8)
+                return
+            } catch {
+                self.console.writeMessage("Warning: Could not write formatted log, falling back to raw export", to: .standard)
+            }
+        }
+
+        XCResultToolCommand.Export(withXCResult: xcresult, id: logRef.id, outputPath: fileURL.path, type: .file).run()
+    }
+
+    private func formattedLogString(xcresult: XCResult, logRef: Reference) -> String? {
+        guard let getResult = XCResultToolCommand.Get(withXCResult: xcresult, id: logRef.id, outputPath: "", format: .json).run() else {
+            return nil
+        }
+
+        do {
+            let jsonString = try getResult.utf8Output()
+            if getResult.exitStatus != .terminated(code: 0) || jsonString.isEmpty {
+                return nil
+            }
+
+            let jsonData = Data(jsonString.utf8)
+            let logSection = try decodeActivityLogSection(from: jsonData)
+            return formatLogSection(logSection, indent: 0)
+        } catch {
+            return nil
+        }
+    }
+
+    private func decodeActivityLogSection(from jsonData: Data) throws -> ActivityLogSection {
+        let jsonObject = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any]
+        let typeName = (jsonObject?["_type"] as? [String: Any])?["_name"] as? String
+
+        switch typeName {
+        case "ActivityLogUnitTestSection":
+            return try decoder.decode(ActivityLogUnitTestSection.self, from: jsonData)
+        case "ActivityLogMajorSection":
+            return try decoder.decode(ActivityLogMajorSection.self, from: jsonData)
+        case "ActivityLogTargetBuildSection":
+            return try decoder.decode(ActivityLogTargetBuildSection.self, from: jsonData)
+        case "ActivityLogCommandInvocationSection":
+            return try decoder.decode(ActivityLogCommandInvocationSection.self, from: jsonData)
+        default:
+            return try decoder.decode(ActivityLogSection.self, from: jsonData)
+        }
+    }
+
+    private func formatLogSection(_ section: ActivityLogSection, indent: Int) -> String {
+        var lines = ""
+        let prefix = String(repeating: "  ", count: indent)
+
+        lines += "\(prefix)\(section.title)\n"
+
+        if let unitTestSection = section as? ActivityLogUnitTestSection {
+            if let emittedOutput = unitTestSection.emittedOutput, !emittedOutput.isEmpty {
+                lines += emittedOutput
+                if !emittedOutput.hasSuffix("\n") {
+                    lines += "\n"
+                }
+            }
+            if let summary = unitTestSection.summary, !summary.isEmpty {
+                lines += "\(prefix)  \(summary)\n"
+            }
+        } else if let commandSection = section as? ActivityLogCommandInvocationSection {
+            if !commandSection.commandDetails.isEmpty {
+                lines += "\(prefix)  \(commandSection.commandDetails)\n"
+            }
+            if !commandSection.emittedOutput.isEmpty {
+                lines += commandSection.emittedOutput
+                if !commandSection.emittedOutput.hasSuffix("\n") {
+                    lines += "\n"
+                }
+            }
+        }
+
+        for message in section.messages {
+            lines += "\(prefix)  \(message.title)\n"
+        }
+
+        for subsection in section.subsections {
+            lines += formatLogSection(subsection, indent: indent + 1)
+        }
+
+        return lines
+    }
+
     func convertAppSizeReport(reportPath: String, destination outputDirectoryURL: String, options: ReportConverterOptions) throws {
         guard let report = FileController.loadFileContents(url: reportPath)
         else {
