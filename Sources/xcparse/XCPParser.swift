@@ -428,6 +428,103 @@ class XCPParser {
         }
     }
 
+    func generateTestReport(xcresultPath: String) throws -> [TestReport] {
+        var xcresult = XCResult(path: xcresultPath, console: self.console)
+        guard let invocationRecord = xcresult.invocationRecord else {
+            xcresult.console.writeMessage(""\(xcresult.path)" does not appear to be an xcresult", to: .error)
+            return []
+        }
+
+        var reports: [TestReport] = []
+
+        let actions = invocationRecord.actions.filter { $0.actionResult.testsRef != nil }
+        for action in actions {
+            guard let testRef = action.actionResult.testsRef else {
+                continue
+            }
+
+            guard let testPlanRunSummaries: ActionTestPlanRunSummaries = testRef.modelFromReference(withXCResult: xcresult) else {
+                xcresult.console.writeMessage("Error: Unhandled test reference type \(String(describing: testRef.targetType?.getType()))", to: .error)
+                continue
+            }
+
+            for testPlanRun in testPlanRunSummaries.summaries {
+                for testableSummary in testPlanRun.testableSummaries {
+                    let testSummaryMap = testableSummary.flattenedTestSummaryMap(withXCResult: xcresult)
+
+                    for (testSummary, childActivitySummaries) in testSummaryMap {
+                        let testName = testSummary.name ?? testSummary.identifier ?? "Unknown"
+
+                        var failureEntries: [TestFailureEntry] = []
+                        for failureSummary in testSummary.failureSummaries {
+                            let attachmentGroups = groupAttachments(
+                                failureAttachments: failureSummary.attachments,
+                                activitySummaries: childActivitySummaries
+                            )
+
+                            let entry = TestFailureEntry(
+                                file: failureSummary.fileName,
+                                line: failureSummary.lineNumber,
+                                message: failureSummary.message ?? "",
+                                attachments: attachmentGroups
+                            )
+                            failureEntries.append(entry)
+                        }
+
+                        let report = TestReport(
+                            testName: testName,
+                            testStatus: testSummary.testStatus,
+                            failures: failureEntries
+                        )
+                        reports.append(report)
+                    }
+                }
+            }
+        }
+
+        return reports
+    }
+
+    private func groupAttachments(failureAttachments: [ActionTestAttachment], activitySummaries: [ActionTestActivitySummary]) -> [TestAttachmentGroup] {
+        let allAttachments: [ActionTestAttachment]
+        if !failureAttachments.isEmpty {
+            allAttachments = failureAttachments
+        } else {
+            allAttachments = activitySummaries.flatMap { $0.attachments }
+        }
+
+        if allAttachments.isEmpty {
+            return []
+        }
+
+        var referenceFile: String?
+        var failureFile: String?
+        var differenceFile: String?
+        var ungrouped: [ActionTestAttachment] = []
+
+        for attachment in allAttachments {
+            let name = (attachment.name ?? attachment.filename ?? "").lowercased()
+            if name.contains("reference") {
+                referenceFile = attachment.filename
+            } else if name.contains("failure") || name.contains("failed") {
+                failureFile = attachment.filename
+            } else if name.contains("difference") || name.contains("diff") {
+                differenceFile = attachment.filename
+            } else {
+                ungrouped.append(attachment)
+            }
+        }
+
+        if referenceFile != nil || failureFile != nil || differenceFile != nil {
+            return [TestAttachmentGroup(reference: referenceFile, failure: failureFile, difference: differenceFile)]
+        }
+
+        return ungrouped.compactMap { attachment in
+            guard let filename = attachment.filename else { return nil }
+            return TestAttachmentGroup(reference: filename, failure: nil, difference: nil)
+        }
+    }
+
     func printVersion() {
         self.console.writeMessage("\(xcparseCurrentVersion)")
     }
@@ -478,6 +575,7 @@ class XCPParser {
         registry.register(command: AttachmentsCommand.self)
         registry.register(command: VersionCommand.self)
         registry.register(command: ConverterCommand.self)
+        registry.register(command: TestReportCommand.self)
         registry.run()
 
         self.printLatestVersionInfoIfNeeded()
