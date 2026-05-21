@@ -27,6 +27,8 @@ struct AttachmentsCommand: Command {
     var divideByRegion: OptionArgument<Bool>
     var divideByTest: OptionArgument<Bool>
 
+    var stripUUID: OptionArgument<Bool>
+
     var utiWhitelist: OptionArgument<[String]>
     var activityTypeWhitelist: OptionArgument<[String]>
 
@@ -45,6 +47,8 @@ struct AttachmentsCommand: Command {
         divideByLanguage = subparser.add(option: "--language", shortName: nil, kind: Bool.self, usage: "Divide attachments by test language")
         divideByRegion = subparser.add(option: "--region", shortName: nil, kind: Bool.self, usage: "Divide attachments by test region")
         divideByTest = subparser.add(option: "--test", shortName: nil, kind: Bool.self, usage: "Divide attachments by test")
+
+        stripUUID = subparser.add(option: "--strip-uuid", shortName: nil, kind: Bool.self, usage: "Remove UUIDs from exported attachment filenames")
 
         utiWhitelist = subparser.add(option: "--uti", shortName: nil, kind: [String].self, strategy: .upToNextOption,
                                      usage: "Whitelist of uniform type identifiers (UTI) attachments must conform to [optional, example: \"--uti public.image public.plain-text\"]")
@@ -85,7 +89,8 @@ struct AttachmentsCommand: Command {
                                               divideByTestPlanConfig: arguments.get(self.divideByTestPlanConfig) ?? (arguments.get(self.divideByTestRun) ?? false),
                                               divideByLanguage: arguments.get(self.divideByLanguage) ?? false,
                                               divideByRegion: arguments.get(self.divideByRegion) ?? false,
-                                              divideByTest: arguments.get(self.divideByTest) ?? false)
+                                              divideByTest: arguments.get(self.divideByTest) ?? false,
+                                              stripUUID: arguments.get(self.stripUUID) ?? false)
         if let allowedUTIsToExport = arguments.get(self.utiWhitelist) {
             options.attachmentFilter = {
                 let attachmentUTI = $0.uniformTypeIdentifier as CFString
