@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+install_path="${ASDF_INSTALL_PATH}"
+download_path="${ASDF_DOWNLOAD_PATH}"
+
+mkdir -p "${install_path}/bin"
+
+if [ -f "${download_path}/.source-build" ]; then
+  echo "Building xcparse from source..."
+  (
+    cd "${download_path}"
+    swift build -c release --disable-sandbox
+    cp ".build/release/xcparse" "${install_path}/bin/xcparse"
+  )
+  echo "xcparse built and installed to ${install_path}/bin/xcparse"
+else
+  if [ -f "${download_path}/xcparse" ]; then
+    cp "${download_path}/xcparse" "${install_path}/bin/xcparse"
+  elif [ -d "${download_path}" ]; then
+    # Handle case where zip extracts into a subdirectory
+    found=$(find "${download_path}" -name "xcparse" -type f ! -name "*.zip" ! -name "*.tar.gz" | head -1)
+    if [ -n "${found}" ]; then
+      cp "${found}" "${install_path}/bin/xcparse"
+    else
+      echo "Could not find xcparse binary in download." >&2
+      exit 1
+    fi
+  fi
+  chmod +x "${install_path}/bin/xcparse"
+  echo "xcparse installed to ${install_path}/bin/xcparse"
+fi

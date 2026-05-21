@@ -29,6 +29,34 @@ To use a specific version of xcparse, add the release tag like so:
 mint run ChargePoint/xcparse@2.1.0 xcparse --help
 ```
 
+### [mise](https://mise.jdx.dev) / [asdf](https://asdf-vm.com)
+
+xcparse includes an [asdf](https://asdf-vm.com)-compatible plugin, which also works with [mise](https://mise.jdx.dev) (a modern alternative to asdf).
+
+**Using mise:**
+
+```shell
+mise plugin install xcparse https://github.com/ChargePoint/xcparse.git
+mise install xcparse@latest
+mise use xcparse@latest
+```
+
+**Using asdf:**
+
+```shell
+asdf plugin add xcparse https://github.com/ChargePoint/xcparse.git
+asdf install xcparse latest
+asdf global xcparse latest
+```
+
+You can also pin a specific version in your project with a `.tool-versions` file:
+
+```
+xcparse 2.3.2
+```
+
+For versions with prebuilt binaries (2.0.0+), the plugin downloads the release artifact directly. For older versions, it falls back to building from source (requires Xcode and Swift).
+
 ### Bitrise
 
 Want to use this in [Bitrise](https://www.bitrise.io)? We have an [xcparse Bitrise step](https://github.com/ChargePoint/bitrise-step-xcparse) available in the [Bitrise StepLib](https://github.com/bitrise-io/bitrise-steplib) so you can add xcparse directly from the Bitrise Workflow UI!

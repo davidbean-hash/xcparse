@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+echo "macOS"
+echo "  Xcode (with command line tools)"
+echo "  curl"
+echo "  unzip"
