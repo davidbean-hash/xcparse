@@ -16,18 +16,41 @@ open class XCResultToolCommand {
     let process: TSCBasic.Process
 
     let xcresult: XCResult
+    private let uniqueTempDirectory: String
     var console: Console {
         get {
             return self.xcresult.console
         }
     }
 
-    public init(withXCResult xcresult: XCResult, process: TSCBasic.Process = TSCBasic.Process(arguments: ["xcrun", "xcresulttool", "-h"])) {
+    /// Creates a process environment with a unique TMPDIR to prevent race conditions
+    /// when multiple xcparse instances run concurrently.
+    static func createUniqueEnvironment() -> (environment: [String: String], tempDirectory: String) {
+        var env = ProcessInfo.processInfo.environment
+        let baseTmpDir = env["TMPDIR"] ?? NSTemporaryDirectory()
+        let separator = baseTmpDir.hasSuffix("/") ? "" : "/"
+        let uniqueTmpDir = "\(baseTmpDir)\(separator)xcparse_\(UUID().uuidString)"
+        env["TMPDIR"] = uniqueTmpDir
+        return (env, uniqueTmpDir)
+    }
+
+    public init(withXCResult xcresult: XCResult, process: TSCBasic.Process = TSCBasic.Process(arguments: ["xcrun", "xcresulttool", "-h"]), uniqueTempDirectory: String = "") {
         self.xcresult = xcresult
         self.process = process
+        self.uniqueTempDirectory = uniqueTempDirectory
     }
     
     @discardableResult public func run() -> TSCBasic.ProcessResult? {
+        if !uniqueTempDirectory.isEmpty {
+            try? FileManager.default.createDirectory(atPath: uniqueTempDirectory, withIntermediateDirectories: true, attributes: nil)
+        }
+
+        defer {
+            if !uniqueTempDirectory.isEmpty {
+                try? FileManager.default.removeItem(atPath: uniqueTempDirectory)
+            }
+        }
+
         do {
             self.console.writeMessage("Command: \(process.arguments.joined(separator: " "))\n", to: .verbose)
 
@@ -77,8 +100,9 @@ open class XCResultToolCommand {
                                             "--output-path", self.outputPath])
             processArgs.addLegacyFlagIfNeeded()
 
-            let process = TSCBasic.Process(arguments: processArgs)
-            super.init(withXCResult: xcresult, process: process)
+            let (env, tempDir) = XCResultToolCommand.createUniqueEnvironment()
+            let process = TSCBasic.Process(arguments: processArgs, environment: env)
+            super.init(withXCResult: xcresult, process: process, uniqueTempDirectory: tempDir)
         }
 
         public init(withXCResult xcresult: XCResult, attachment: ActionTestAttachment, outputPath: String) {
@@ -100,8 +124,9 @@ open class XCResultToolCommand {
 
             processArgs.addLegacyFlagIfNeeded()
 
-            let process = TSCBasic.Process(arguments: processArgs)
-            super.init(withXCResult: xcresult, process: process)
+            let (env, tempDir) = XCResultToolCommand.createUniqueEnvironment()
+            let process = TSCBasic.Process(arguments: processArgs, environment: env)
+            super.init(withXCResult: xcresult, process: process, uniqueTempDirectory: tempDir)
         }
     }
 
