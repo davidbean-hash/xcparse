@@ -465,6 +465,96 @@ class XCPParser {
     }
 
     // MARK: -
+    // MARK: Test Results Export
+
+    func extractTestResults(xcresultPath: String, outputPath: String?, format: TestResultsOutputFormat) throws {
+        var xcresult = XCResult(path: xcresultPath, console: self.console)
+        guard let invocationRecord = xcresult.invocationRecord else {
+            xcresult.console.writeMessage(""\(xcresult.path)" does not appear to be an xcresult", to: .error)
+            return
+        }
+
+        var testSuites: [TestResultSuite] = []
+
+        let actions = invocationRecord.actions.filter { $0.actionResult.testsRef != nil }
+        for action in actions {
+            guard let testRef = action.actionResult.testsRef else {
+                continue
+            }
+
+            guard let testPlanRunSummaries: ActionTestPlanRunSummaries = testRef.modelFromReference(withXCResult: xcresult) else {
+                xcresult.console.writeMessage("Error: Unhandled test reference type \(String(describing: testRef.targetType?.getType()))", to: .error)
+                continue
+            }
+
+            for testPlanRun in testPlanRunSummaries.summaries {
+                for testableSummary in testPlanRun.testableSummaries {
+                    let suiteName = testableSummary.targetName ?? testableSummary.name ?? "UnknownTarget"
+                    var testCases: [TestResultCase] = []
+
+                    let testSummaryMap = testableSummary.flattenedTestSummaryMap(withXCResult: xcresult)
+                    for (testSummary, _) in testSummaryMap {
+                        let testName = testSummary.name ?? testSummary.identifier ?? "UnknownTest"
+                        let identifier = testSummary.identifier
+
+                        var failureMessages: [TestResultFailure] = []
+                        for failure in testSummary.failureSummaries {
+                            failureMessages.append(TestResultFailure(
+                                message: failure.message ?? "Unknown failure",
+                                fileName: failure.fileName,
+                                lineNumber: failure.lineNumber
+                            ))
+                        }
+
+                        testCases.append(TestResultCase(
+                            name: testName,
+                            identifier: identifier,
+                            status: testSummary.testStatus,
+                            duration: testSummary.duration,
+                            failures: failureMessages
+                        ))
+                    }
+
+                    let suiteDuration = testCases.reduce(0.0) { $0 + $1.duration }
+                    let totalCount = testCases.count
+                    let failureCount = testCases.filter { $0.status == "Failure" }.count
+
+                    testSuites.append(TestResultSuite(
+                        name: suiteName,
+                        testPlanName: testPlanRun.name,
+                        totalCount: totalCount,
+                        failureCount: failureCount,
+                        duration: suiteDuration,
+                        testCases: testCases
+                    ))
+                }
+            }
+        }
+
+        let report = TestResultReport(suites: testSuites)
+        let output: String
+        switch format {
+        case .json:
+            output = report.toJSON()
+        case .junit:
+            output = report.toJUnitXML()
+        }
+
+        if let outputPath = outputPath {
+            let outputURL = URL(fileURLWithPath: outputPath)
+            let parentDir = outputURL.deletingLastPathComponent()
+            if parentDir.createDirectoryIfNecessary() != true {
+                self.console.writeMessage("Error: Could not create output directory", to: .error)
+                return
+            }
+            try output.write(toFile: outputPath, atomically: true, encoding: .utf8)
+            self.console.writeMessage("Test results written to \(outputPath)")
+        } else {
+            print(output)
+        }
+    }
+
+    // MARK: -
     // MARK: Modes
     
     func staticMode() throws {
@@ -478,6 +568,7 @@ class XCPParser {
         registry.register(command: AttachmentsCommand.self)
         registry.register(command: VersionCommand.self)
         registry.register(command: ConverterCommand.self)
+        registry.register(command: TestResultsCommand.self)
         registry.run()
 
         self.printLatestVersionInfoIfNeeded()
