@@ -27,6 +27,7 @@ struct AttachmentExportOptions {
     var divideByLanguage: Bool = false
     var divideByRegion: Bool = false
     var divideByTest: Bool = false
+    var stripUUID: Bool = false
 
     var xcresulttoolCompatability = XCResultToolCompatability()
 
@@ -272,11 +273,34 @@ class XCPParser {
             let exportRelativePath = exportURL.path.replacingOccurrences(of: screenshotBaseDirectoryURL.path, with: "").trimmingCharacters(in: CharacterSet(charactersIn: "/"))
             let displayName = exportRelativePath.replacingOccurrences(of: "/", with: " - ")
 
-            self.exportAttachments(withXCResult: xcresult, toDirectory: exportURL, attachments: attachmentsToExport, displayName: displayName)
+            self.exportAttachments(withXCResult: xcresult, toDirectory: exportURL, attachments: attachmentsToExport, displayName: displayName, stripUUID: options.stripUUID)
         }
     }
 
-    func exportAttachments(withXCResult xcresult: XCResult, toDirectory screenshotDirectoryURL: Foundation.URL, attachments: [ActionTestAttachment], displayName: String = "") {
+    static let uuidPattern = "_[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}"
+
+    static func filenameByStrippingUUID(from filename: String) -> String {
+        let nameWithoutExtension = (filename as NSString).deletingPathExtension
+        let fileExtension = (filename as NSString).pathExtension
+
+        guard let regex = try? NSRegularExpression(pattern: uuidPattern, options: []) else {
+            return filename
+        }
+
+        let range = NSRange(nameWithoutExtension.startIndex..<nameWithoutExtension.endIndex, in: nameWithoutExtension)
+        let stripped = regex.stringByReplacingMatches(in: nameWithoutExtension, options: [], range: range, withTemplate: "")
+
+        if stripped.isEmpty {
+            return filename
+        }
+
+        if fileExtension.isEmpty {
+            return stripped
+        }
+        return stripped + "." + fileExtension
+    }
+
+    func exportAttachments(withXCResult xcresult: XCResult, toDirectory screenshotDirectoryURL: Foundation.URL, attachments: [ActionTestAttachment], displayName: String = "", stripUUID: Bool = false) {
         if attachments.count <= 0 {
             return
         }
@@ -285,10 +309,32 @@ class XCPParser {
         let progressBar = PercentProgressAnimation(stream: TSCBasic.stdoutStream, header: header)
         progressBar.update(step: 0, total: attachments.count, text: "")
 
+        var usedFilenames: [String: Int] = [:]
+
         for (index, attachment) in attachments.enumerated() {
             progressBar.update(step: index, total: attachments.count, text: "Extracting \"\(attachment.filename ?? "Unknown Filename")\"")
 
-            XCResultToolCommand.Export(withXCResult: xcresult, attachment: attachment, outputPath: screenshotDirectoryURL.path).run()
+            if stripUUID, let identifier = attachment.payloadRef?.id {
+                let originalFilename = attachment.filename ?? identifier
+                var strippedFilename = XCPParser.filenameByStrippingUUID(from: originalFilename)
+
+                let count = usedFilenames[strippedFilename, default: 0]
+                usedFilenames[strippedFilename] = count + 1
+                if count > 0 {
+                    let nameWithoutExtension = (strippedFilename as NSString).deletingPathExtension
+                    let fileExtension = (strippedFilename as NSString).pathExtension
+                    if fileExtension.isEmpty {
+                        strippedFilename = "\(nameWithoutExtension)_\(count + 1)"
+                    } else {
+                        strippedFilename = "\(nameWithoutExtension)_\(count + 1).\(fileExtension)"
+                    }
+                }
+
+                let outputPath = screenshotDirectoryURL.appendingPathComponent(strippedFilename).path
+                XCResultToolCommand.Export(withXCResult: xcresult, id: identifier, outputPath: outputPath, type: .file).run()
+            } else {
+                XCResultToolCommand.Export(withXCResult: xcresult, attachment: attachment, outputPath: screenshotDirectoryURL.path).run()
+            }
         }
 
         progressBar.update(step: attachments.count, total: attachments.count, text: "🎊 Export complete! 🎊")
