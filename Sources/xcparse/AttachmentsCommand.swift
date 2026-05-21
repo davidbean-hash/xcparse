@@ -9,6 +9,9 @@
 import Foundation
 import TSCBasic
 import TSCUtility
+#if canImport(CoreServices)
+import CoreServices
+#endif
 
 struct AttachmentsCommand: Command {
     let command = "attachments"
@@ -88,9 +91,9 @@ struct AttachmentsCommand: Command {
                                               divideByTest: arguments.get(self.divideByTest) ?? false)
         if let allowedUTIsToExport = arguments.get(self.utiWhitelist) {
             options.attachmentFilter = {
-                let attachmentUTI = $0.uniformTypeIdentifier as CFString
+                let attachmentUTI = $0.uniformTypeIdentifier
                 for allowedUTI in allowedUTIsToExport {
-                    if UTTypeConformsTo(attachmentUTI, allowedUTI as CFString) {
+                    if utiConforms(attachmentUTI, toType: allowedUTI) {
                         return true
                     }
                 }
