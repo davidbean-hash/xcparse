@@ -158,6 +158,32 @@ The ```--flag-variants``` option can allow for the generation of an app size vio
 
 If a size unit is not specified, the default unit is considered to be megabytes. Similarly, invalid arguments cause a default size limit of 10MB to be used for flagging app size violations.
 
+### Deploying Screenshots to App Store Connect
+
+xcparse can extract screenshots organized by language and device — the exact structure needed for uploading to App Store Connect. See our [App Store Connect deployment guide](docs/APP_STORE_CONNECT.md) for:
+
+- A complete workflow from `.xcresult` to App Store Connect (no fastlane required)
+- How to set up App Store Connect API credentials
+- A ready-to-use [helper script](scripts/xcparse-to-appstore.sh) that maps xcparse output to the App Store Connect API
+- CI/CD integration examples (GitHub Actions)
+- Device-to-display-type and language-to-locale mapping tables
+
+Quick start:
+
+```bash
+# 1. Extract screenshots organized by language and device
+xcparse screenshots --language --model --activity-type userCreated \
+  /path/to/UITests.xcresult ./screenshots
+
+# 2. Upload to App Store Connect
+./scripts/xcparse-to-appstore.sh \
+  --app-id YOUR_APP_ID \
+  --issuer-id YOUR_ISSUER_ID \
+  --key-id YOUR_KEY_ID \
+  --private-key AuthKey.p8 \
+  --screenshots-dir ./screenshots
+```
+
 ### Help
 
 ```
