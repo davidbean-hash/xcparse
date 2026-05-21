@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+REPO="ChargePoint/xcparse"
+
+# Fetch all tags from GitHub API, sorted oldest-first
+versions=$(
+  curl --silent --fail "https://api.github.com/repos/${REPO}/tags?per_page=100" \
+    | grep -oE '"name": *"[^"]+"' \
+    | sed 's/"name": *"//;s/"//' \
+    | tac
+)
+
+echo "$versions" | tr '\n' ' '

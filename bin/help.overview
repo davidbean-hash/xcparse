@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+echo "xcparse - A command line tool to extract code coverage & screenshots from Xcode XCResult files."

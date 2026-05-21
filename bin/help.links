@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+echo "GitHub Homepage: https://github.com/ChargePoint/xcparse"
+echo "Documentation:   https://github.com/ChargePoint/xcparse#readme"
+echo "Releases:        https://github.com/ChargePoint/xcparse/releases"

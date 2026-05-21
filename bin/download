@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+REPO="ChargePoint/xcparse"
+
+if [ "${ASDF_INSTALL_TYPE}" = "ref" ]; then
+  echo "xcparse asdf plugin does not support installing by ref." >&2
+  exit 1
+fi
+
+version="${ASDF_INSTALL_VERSION}"
+download_path="${ASDF_DOWNLOAD_PATH}"
+
+mkdir -p "${download_path}"
+
+download_url="https://github.com/${REPO}/releases/download/${version}/xcparse.zip"
+
+echo "Downloading xcparse ${version} from ${download_url}..."
+
+if ! curl --silent --fail --location --output "${download_path}/xcparse.zip" "${download_url}"; then
+  echo "Failed to download xcparse ${version}." >&2
+  echo "No prebuilt binary found. Falling back to source build..." >&2
+
+  source_url="https://github.com/${REPO}/archive/refs/tags/${version}.tar.gz"
+  if ! curl --silent --fail --location --output "${download_path}/source.tar.gz" "${source_url}"; then
+    echo "Failed to download source for xcparse ${version}." >&2
+    rm -rf "${download_path}"
+    exit 1
+  fi
+
+  tar -xzf "${download_path}/source.tar.gz" -C "${download_path}" --strip-components=1
+  rm -f "${download_path}/source.tar.gz"
+  echo "Source downloaded to ${download_path}."
+  touch "${download_path}/.source-build"
+  exit 0
+fi
+
+unzip -q "${download_path}/xcparse.zip" -d "${download_path}"
+rm -f "${download_path}/xcparse.zip"
+
+echo "Downloaded xcparse ${version}."
