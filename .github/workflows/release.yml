@@ -1,0 +1,55 @@
+name: Release
+
+on:
+  release:
+    types: [created]
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-upload:
+    name: Build & Upload Release Binary
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build universal binary (arm64 + x86_64)
+        run: |
+          swift build -c release --arch arm64 --arch x86_64
+
+      - name: Prepare release assets
+        run: |
+          BINARY_PATH=$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)/xcparse
+          VERSION="${GITHUB_REF_NAME}"
+
+          mkdir -p release-assets
+
+          cp "$BINARY_PATH" release-assets/xcparse
+
+          # Create tar.gz archive
+          tar -czf "release-assets/xcparse-${VERSION}-macos-universal.tar.gz" \
+            -C release-assets xcparse
+
+          # Create zip archive
+          zip -j "release-assets/xcparse-${VERSION}-macos-universal.zip" \
+            release-assets/xcparse
+
+          # Generate SHA256 checksums
+          cd release-assets
+          shasum -a 256 "xcparse-${VERSION}-macos-universal.tar.gz" \
+                        "xcparse-${VERSION}-macos-universal.zip" \
+            > "xcparse-${VERSION}-checksums-sha256.txt"
+
+      - name: Upload release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${GITHUB_REF_NAME}"
+          gh release upload "$VERSION" \
+            "release-assets/xcparse-${VERSION}-macos-universal.tar.gz" \
+            "release-assets/xcparse-${VERSION}-macos-universal.zip" \
+            "release-assets/xcparse-${VERSION}-checksums-sha256.txt" \
+            --clobber
