@@ -72,10 +72,21 @@ open class XCResultToolCommand {
             process.standardError = stderrPipe
 
             try process.run()
-            process.waitUntilExit()
 
+            // Read both pipes concurrently to avoid deadlock when output
+            // exceeds the pipe buffer (~64KB). If either pipe fills and blocks
+            // the child process, reading the other pipe sequentially would hang.
+            var stderrData = Data()
+            let group = DispatchGroup()
+            group.enter()
+            DispatchQueue.global().async {
+                stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+                group.leave()
+            }
             let stdoutData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
-            let stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+            group.wait()
+
+            process.waitUntilExit()
 
             let result = CommandResult(
                 exitStatus: .terminated(code: process.terminationStatus),

@@ -52,9 +52,9 @@ open class Console {
 
         do {
             try process.run()
-            process.waitUntilExit()
 
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
             let retval = String(data: data, encoding: .utf8) ?? ""
             self.writeMessage(retval, to: .verbose)
             return retval
