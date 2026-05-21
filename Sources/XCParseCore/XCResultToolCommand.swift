@@ -167,6 +167,7 @@ open class XCResultToolCommand {
             var processArgs = xcresultToolArguments
             processArgs.append(contentsOf: ["metadata", "get",
                                             "--path", xcresult.path])
+            processArgs.addLegacyFlagIfNeeded()
 
             let process = TSCBasic.Process(arguments: processArgs)
             super.init(withXCResult: xcresult, process: process)
@@ -175,9 +176,12 @@ open class XCResultToolCommand {
 
     open class Version: XCResultToolCommand {
 
-        public init() {
+        public init(legacyFlag: Bool = false) {
             var processArgs = xcresultToolArguments
             processArgs.append(contentsOf: ["version"])
+            if legacyFlag {
+                processArgs.append("--legacy")
+            }
 
             let xcresult = XCResult(path: "")
             let process = TSCBasic.Process(arguments: processArgs)
@@ -190,7 +194,9 @@ open class XCResultToolCommand {
 
 private let shouldAddLegacyFlag: Bool = {
     guard let xcresulttoolVersion = Version.xcresulttool() else {
-      return false
+      // If the version cannot be determined, assume --legacy is needed.
+      // This handles newer Xcode versions where the output format may have changed.
+      return true
     }
 
     let versionWithDeprecatedAPIs = Version.xcresulttoolWithDeprecatedAPIs()

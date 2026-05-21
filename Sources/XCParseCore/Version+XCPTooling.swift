@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import TSCBasic
 import TSCUtility
 
 public extension Version {
@@ -18,33 +19,46 @@ public extension Version {
     }
 
     static func xcresulttool() -> Version? {
-        guard let xcresulttoolVersionResult = XCResultToolCommand.Version().run() else {
+        if let version = runXCResultToolVersion(legacyFlag: false) {
+            return version
+        }
+        return runXCResultToolVersion(legacyFlag: true)
+    }
+
+    /// Extracts the xcresulttool version from a version output string.
+    static func parseXCResultToolVersionString(_ output: String) -> Version? {
+        let components = output.components(separatedBy: CharacterSet(charactersIn: ",\n"))
+        for string in components {
+            let trimmedString = string.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmedString.hasPrefix("xcresulttool version ") {
+                let versionString = trimmedString.replacingOccurrences(of: "xcresulttool version ", with: "")
+
+                if let versionInt = Int(versionString) {
+                    return Version(versionInt, 0, 0)
+                } else {
+                    return Version(string: versionString)
+                }
+            }
+        }
+        return nil
+    }
+
+    // MARK: - Private
+
+    private static func runXCResultToolVersion(legacyFlag: Bool) -> Version? {
+        let command = XCResultToolCommand.Version(legacyFlag: legacyFlag)
+        guard let result = command.run() else {
             return nil
         }
         do {
-            let xcresultVersionString = try xcresulttoolVersionResult.utf8Output()
-
-            let components = xcresultVersionString.components(separatedBy: CharacterSet(charactersIn: ",\n"))
-            for string in components {
-                let trimmedString = string.trimmingCharacters(in: .whitespacesAndNewlines)
-                if trimmedString.hasPrefix("xcresulttool version ") {
-                    let xcresulttoolVersionString = trimmedString.replacingOccurrences(of: "xcresulttool version ", with: "")
-                    // Check to see if we can convert it to a number
-                    var xcresulttoolVersion: Version?
-
-                    if let xcresulttoolVersionInt = Int(xcresulttoolVersionString) {
-                        xcresulttoolVersion = Version(xcresulttoolVersionInt, 0, 0)
-                    } else {
-                        xcresulttoolVersion = Version(string: xcresulttoolVersionString)
-                    }
-
-                    return xcresulttoolVersion
-                }
+            let stdout = try result.utf8Output()
+            if let version = parseXCResultToolVersionString(stdout) {
+                return version
             }
 
-            return nil
+            let stderr = try result.utf8stderrOutput()
+            return parseXCResultToolVersionString(stderr)
         } catch {
-            print("Failed to parse xcresulttool version with error: \(error)")
             return nil
         }
     }
