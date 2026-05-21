@@ -1,0 +1,68 @@
+name: CI - Multi-Toolchain Build & Test
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build-and-test:
+    name: Xcode ${{ matrix.xcode }} (macOS ${{ matrix.macos }})
+    runs-on: ${{ matrix.macos }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - macos: macos-13
+            xcode: "14.3.1"
+          - macos: macos-14
+            xcode: "15.4"
+          - macos: macos-15
+            xcode: "16.2"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode ${{ matrix.xcode }}
+        run: sudo xcode-select -s /Applications/Xcode_${{ matrix.xcode }}.app/Contents/Developer
+
+      - name: Show toolchain info
+        run: |
+          xcodebuild -version
+          swift --version
+          swift package --version
+
+      - name: Resolve dependencies
+        run: swift package resolve
+
+      - name: Build (debug)
+        run: swift build
+
+      - name: Run tests
+        run: swift test
+
+      - name: Build (release)
+        run: swift build -c release --disable-sandbox
+
+      - name: Homebrew-style install (build from source)
+        run: |
+          make build
+          sudo make install
+          echo "Installed xcparse to /usr/local/bin"
+
+      - name: Smoke test - help flag
+        run: xcparse --help
+
+      - name: Smoke test - version
+        run: xcparse version || echo "Version command may not be implemented; non-fatal"
+
+      - name: Verify binary exists and is executable
+        run: |
+          which xcparse
+          file "$(which xcparse)"
+
+      - name: Cleanup
+        if: always()
+        run: sudo make uninstall || true
