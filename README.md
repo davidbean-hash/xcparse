@@ -4,7 +4,26 @@ A command line tool to extract code coverage & screenshots from Xcode 11 XCResul
 
 To learn more about Xcode 11's xcresult format, read [Rishab Sukumar's post on the ChargePoint Engineering blog](https://www.chargepoint.com/engineering/xcparse/)
 
-## Installation 
+## Installation
+
+### Binary (GitHub Releases)
+
+Pre-built universal macOS binaries (arm64 + x86_64) are attached to each
+[GitHub Release](https://github.com/ChargePoint/xcparse/releases).
+
+```shell
+# Download the latest release (replace VERSION with the desired tag, e.g. 2.3.2)
+VERSION="2.3.2"
+curl -LO "https://github.com/ChargePoint/xcparse/releases/download/${VERSION}/xcparse-${VERSION}-macos-universal.tar.gz"
+
+# Verify the checksum
+curl -LO "https://github.com/ChargePoint/xcparse/releases/download/${VERSION}/xcparse-${VERSION}-checksums-sha256.txt"
+shasum -a 256 -c "xcparse-${VERSION}-checksums-sha256.txt"
+
+# Extract and install
+tar xzf "xcparse-${VERSION}-macos-universal.tar.gz"
+sudo install xcparse /usr/local/bin/xcparse
+```
 
 ### [Homebrew](https://brew.sh)
 
