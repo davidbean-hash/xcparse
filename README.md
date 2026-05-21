@@ -29,6 +29,8 @@ To use a specific version of xcparse, add the release tag like so:
 mint run ChargePoint/xcparse@2.1.0 xcparse --help
 ```
 
+> **Supply Chain Security:** This repository uses [immutable releases](#supply-chain-security) and provides SHA-256 checksums for all release artifacts. When installing via Mint with a pinned version tag, you are guaranteed to receive the exact code that was originally released. See [SECURITY.md](SECURITY.md) for details.
+
 ### Bitrise
 
 Want to use this in [Bitrise](https://www.bitrise.io)? We have an [xcparse Bitrise step](https://github.com/ChargePoint/bitrise-step-xcparse) available in the [Bitrise StepLib](https://github.com/bitrise-io/bitrise-steplib) so you can add xcparse directly from the Bitrise Workflow UI!
@@ -167,3 +169,13 @@ xcparse screenshots --help
 ```
 
 Learn about all the options we didn't mention with ```--help```!
+
+## Supply Chain Security
+
+This repository implements supply chain security measures to protect users:
+
+- **Immutable Releases**: Release tags cannot be retargeted to different commits, preventing silent code replacement attacks.
+- **Checksums**: Every release includes SHA-256 checksums for artifact verification.
+- **Automated Releases**: A GitHub Actions workflow builds and publishes releases with integrity checks when version tags are pushed.
+
+For full details, see [SECURITY.md](SECURITY.md).
