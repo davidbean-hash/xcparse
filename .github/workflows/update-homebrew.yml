@@ -1,0 +1,122 @@
+name: Update Homebrew Tap
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  update-homebrew:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get release info
+        id: release
+        run: |
+          VERSION="${GITHUB_REF_NAME}"
+          # Strip leading 'v' if present
+          VERSION="${VERSION#v}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Download release tarball and compute SHA256
+        id: sha
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TAG: ${{ github.ref_name }}
+        run: |
+          TARBALL_URL="https://github.com/${GH_REPO}/archive/refs/tags/${GH_TAG}.tar.gz"
+          echo "Downloading tarball from ${TARBALL_URL}"
+          curl -fsSL -o release.tar.gz "${TARBALL_URL}"
+          SHA256=$(sha256sum release.tar.gz | awk '{print $1}')
+          echo "sha256=${SHA256}" >> "$GITHUB_OUTPUT"
+          echo "tarball_url=${TARBALL_URL}" >> "$GITHUB_OUTPUT"
+          echo "Computed SHA256: ${SHA256}"
+
+      - name: Clone Homebrew tap repo
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          TAP_REPO: ${{ github.repository_owner }}/homebrew-xcparse
+        run: |
+          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/${TAP_REPO}.git" homebrew-tap
+
+      - name: Update formula
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          TAG: ${{ steps.release.outputs.tag }}
+          SHA256: ${{ steps.sha.outputs.sha256 }}
+          TARBALL_URL: ${{ steps.sha.outputs.tarball_url }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          FORMULA_PATH="homebrew-tap/Formula/xcparse.rb"
+          if [ ! -f "${FORMULA_PATH}" ]; then
+            mkdir -p homebrew-tap/Formula
+            cat > "${FORMULA_PATH}" <<'ENDOFTEMPLATE'
+          class Xcparse < Formula
+            desc "CLI tool to extract screenshots & code coverage from Xcode XCResult files"
+            homepage "HOMEPAGE_PLACEHOLDER"
+            url "URL_PLACEHOLDER"
+            sha256 "SHA256_PLACEHOLDER"
+            license "MIT"
+
+            depends_on xcode: ["11.0", :build]
+            depends_on :macos
+
+            def install
+              system "swift", "build", "-c", "release", "--disable-sandbox"
+              bin.install ".build/release/xcparse"
+            end
+
+            test do
+              system bin/"xcparse", "--help"
+            end
+          end
+          ENDOFTEMPLATE
+            sed -i "s|HOMEPAGE_PLACEHOLDER|https://github.com/${GH_REPO}|" "${FORMULA_PATH}"
+            sed -i "s|URL_PLACEHOLDER|${TARBALL_URL}|" "${FORMULA_PATH}"
+            sed -i "s|SHA256_PLACEHOLDER|${SHA256}|" "${FORMULA_PATH}"
+          else
+            sed -i "s|url \".*\"|url \"${TARBALL_URL}\"|" "${FORMULA_PATH}"
+            sed -i "s|sha256 \".*\"|sha256 \"${SHA256}\"|" "${FORMULA_PATH}"
+            sed -i "s|version \".*\"|version \"${VERSION}\"|" "${FORMULA_PATH}"
+          fi
+
+          echo "Updated formula:"
+          cat "${FORMULA_PATH}"
+
+      - name: Create PR to tap repo
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          VERSION: ${{ steps.release.outputs.version }}
+          TAG: ${{ steps.release.outputs.tag }}
+          SHA256: ${{ steps.sha.outputs.sha256 }}
+          GH_REPO: ${{ github.repository }}
+          TAP_REPO: ${{ github.repository_owner }}/homebrew-xcparse
+        run: |
+          cd homebrew-tap
+
+          BRANCH="update-xcparse-${VERSION}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b "${BRANCH}"
+          git add -A
+          git diff --cached --quiet && echo "No changes to commit" && exit 0
+
+          git commit -m "xcparse ${VERSION}"
+          git push origin "${BRANCH}"
+
+          # Create pull request via GitHub API
+          PR_BODY="Automated PR created by the [update-homebrew workflow](https://github.com/${GH_REPO}/actions).\n\nRelease: [${TAG}](https://github.com/${GH_REPO}/releases/tag/${TAG})\nSHA256: \`${SHA256}\`"
+
+          jq -n \
+            --arg title "Update xcparse to ${VERSION}" \
+            --arg body "${PR_BODY}" \
+            --arg head "${BRANCH}" \
+            --arg base "main" \
+            '{title: $title, body: $body, head: $head, base: $base}' | \
+          curl -fsSL -X POST \
+            -H "Authorization: token ${HOMEBREW_TAP_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${TAP_REPO}/pulls" \
+            -d @-
