@@ -65,8 +65,20 @@ Options available include:
 | ```--language```         | Divide by test language                 |
 | ```--region```           | Divide by test region                   |
 | ```--test```             | Divide by test                          |
+| ```--normalize-locale``` | Normalize locale folder names to App Store Connect API format |
 
 See ```xcparse screenshots --help``` for a full-listing
+
+#### Locale Normalization
+
+The ```--normalize-locale``` option converts language/region folder names from the default xcparse format to the format expected by the App Store Connect API. This is useful when uploading screenshots via ```fastlane deliver``` or the Transporter tool.
+
+| Default (without flag) | With ```--normalize-locale``` |
+|------------------------|-------------------------------|
+| en (US)                | en-US                         |
+| es-419 (MX)            | es-MX                         |
+| nb (NO)                | no                            |
+| fr (FR)                | fr-FR                         |
 
 #### Test Status
 
