@@ -40,6 +40,55 @@ struct AttachmentExportOptions {
         return true
     }
 
+    static let activityTypeDomainPrefix = "com.apple.dt.xctest.activity-type."
+
+    /// Checks whether `activityType` matches any of the `allowedTypes` using
+    /// case-insensitive comparison and suffix matching.
+    ///
+    /// Matching rules:
+    /// 1. Case-insensitive exact match against any allowed type (including
+    ///    short names auto-expanded with the known domain prefix).
+    /// 2. For allowed types without dots (short names), the last dot-separated
+    ///    component of `activityType` is also compared case-insensitively.
+    ///    This handles prefix changes across Xcode versions (e.g. Xcode 14.2+).
+    static func activityTypeMatches(_ activityType: String, allowedTypes: [String]) -> Bool {
+        let lowercasedActivityType = activityType.lowercased()
+
+        for allowed in allowedTypes {
+            let lowercasedAllowed = allowed.lowercased()
+
+            // Exact case-insensitive match
+            if lowercasedActivityType == lowercasedAllowed {
+                return true
+            }
+
+            // If the allowed type has no dots, it's a short name
+            let isShortName = !allowed.contains(Character("."))
+            if isShortName {
+                // Try with the known prefix
+                let expanded = (activityTypeDomainPrefix + allowed).lowercased()
+                if lowercasedActivityType == expanded {
+                    return true
+                }
+
+                // Suffix match: compare against last dot-separated component
+                if let lastComponent = lowercasedActivityType.split(separator: ".").last,
+                   String(lastComponent) == lowercasedAllowed {
+                    return true
+                }
+            }
+        }
+
+        return false
+    }
+
+    /// Builds an activity summary filter from user-provided activity type strings.
+    static func activityTypeFilter(for allowedActivityTypes: [String]) -> (ActionTestActivitySummary) -> Bool {
+        return { activitySummary in
+            return activityTypeMatches(activitySummary.activityType, allowedTypes: allowedActivityTypes)
+        }
+    }
+
     func baseScreenshotDirectoryURL(path: String) -> Foundation.URL {
         let destinationURL = URL.init(fileURLWithPath: path)
         if self.addTestScreenshotsDirectory {

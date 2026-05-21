@@ -95,15 +95,7 @@ struct ScreenshotsCommand: Command {
             options.testSummaryFilter = { allowedTestStatuses.contains($0.testStatus) }
         }
         if let allowedActivityTypes = arguments.get(self.activityTypeWhitelist) {
-            // Writing the full domain can be exhausting, so if there is no domain specified, assume it was the normal activity type domain
-            var additionalActivityTypes: [String] = allowedActivityTypes
-
-            let activityTypesWithoutDomain = allowedActivityTypes.filter { $0.contains(Character(".")) == false }
-            for activityType in activityTypesWithoutDomain {
-                additionalActivityTypes.append("com.apple.dt.xctest.activity-type." + activityType)
-            }
-
-            options.activitySummaryFilter = { additionalActivityTypes.contains($0.activityType) }
+            options.activitySummaryFilter = AttachmentExportOptions.activityTypeFilter(for: allowedActivityTypes)
         }
 
         options.xcresulttoolCompatability = xcpParser.checkXCResultToolCompatability(destination: outputPath.pathString)
