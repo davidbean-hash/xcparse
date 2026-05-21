@@ -27,6 +27,7 @@ struct AttachmentExportOptions {
     var divideByLanguage: Bool = false
     var divideByRegion: Bool = false
     var divideByTest: Bool = false
+    var useOriginalNames: Bool = false
 
     var xcresulttoolCompatability = XCResultToolCompatability()
 
@@ -272,11 +273,11 @@ class XCPParser {
             let exportRelativePath = exportURL.path.replacingOccurrences(of: screenshotBaseDirectoryURL.path, with: "").trimmingCharacters(in: CharacterSet(charactersIn: "/"))
             let displayName = exportRelativePath.replacingOccurrences(of: "/", with: " - ")
 
-            self.exportAttachments(withXCResult: xcresult, toDirectory: exportURL, attachments: attachmentsToExport, displayName: displayName)
+            self.exportAttachments(withXCResult: xcresult, toDirectory: exportURL, attachments: attachmentsToExport, displayName: displayName, useOriginalNames: options.useOriginalNames)
         }
     }
 
-    func exportAttachments(withXCResult xcresult: XCResult, toDirectory screenshotDirectoryURL: Foundation.URL, attachments: [ActionTestAttachment], displayName: String = "") {
+    func exportAttachments(withXCResult xcresult: XCResult, toDirectory screenshotDirectoryURL: Foundation.URL, attachments: [ActionTestAttachment], displayName: String = "", useOriginalNames: Bool = false) {
         if attachments.count <= 0 {
             return
         }
@@ -285,10 +286,38 @@ class XCPParser {
         let progressBar = PercentProgressAnimation(stream: TSCBasic.stdoutStream, header: header)
         progressBar.update(step: 0, total: attachments.count, text: "")
 
-        for (index, attachment) in attachments.enumerated() {
-            progressBar.update(step: index, total: attachments.count, text: "Extracting \"\(attachment.filename ?? "Unknown Filename")\"")
+        var usedFilenames = Set<String>()
 
-            XCResultToolCommand.Export(withXCResult: xcresult, attachment: attachment, outputPath: screenshotDirectoryURL.path).run()
+        for (index, attachment) in attachments.enumerated() {
+            var overrideFilename: String? = nil
+            if useOriginalNames, let originalName = attachment.name {
+                var candidateName = originalName
+                // Ensure the original name has a file extension; if not, take it from the internal filename
+                let originalExtension = (originalName as NSString).pathExtension
+                if originalExtension.isEmpty, let internalFilename = attachment.filename {
+                    let internalExtension = (internalFilename as NSString).pathExtension
+                    if !internalExtension.isEmpty {
+                        candidateName = originalName + "." + internalExtension
+                    }
+                }
+
+                // Deduplicate filenames to avoid overwriting
+                var finalName = candidateName
+                var counter = 1
+                while usedFilenames.contains(finalName) {
+                    let baseName = (candidateName as NSString).deletingPathExtension
+                    let ext = (candidateName as NSString).pathExtension
+                    finalName = ext.isEmpty ? "\(baseName)_\(counter)" : "\(baseName)_\(counter).\(ext)"
+                    counter += 1
+                }
+                usedFilenames.insert(finalName)
+                overrideFilename = finalName
+            }
+
+            let exportDisplayName = overrideFilename ?? attachment.filename ?? "Unknown Filename"
+            progressBar.update(step: index, total: attachments.count, text: "Extracting \"\(exportDisplayName)\"")
+
+            XCResultToolCommand.Export(withXCResult: xcresult, attachment: attachment, outputPath: screenshotDirectoryURL.path, overrideFilename: overrideFilename).run()
         }
 
         progressBar.update(step: attachments.count, total: attachments.count, text: "🎊 Export complete! 🎊")
