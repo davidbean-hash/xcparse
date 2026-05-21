@@ -27,6 +27,8 @@ struct AttachmentsCommand: Command {
     var divideByRegion: OptionArgument<Bool>
     var divideByTest: OptionArgument<Bool>
 
+    var useOriginalNames: OptionArgument<Bool>
+
     var utiWhitelist: OptionArgument<[String]>
     var activityTypeWhitelist: OptionArgument<[String]>
 
@@ -45,6 +47,8 @@ struct AttachmentsCommand: Command {
         divideByLanguage = subparser.add(option: "--language", shortName: nil, kind: Bool.self, usage: "Divide attachments by test language")
         divideByRegion = subparser.add(option: "--region", shortName: nil, kind: Bool.self, usage: "Divide attachments by test region")
         divideByTest = subparser.add(option: "--test", shortName: nil, kind: Bool.self, usage: "Divide attachments by test")
+
+        useOriginalNames = subparser.add(option: "--original-names", shortName: nil, kind: Bool.self, usage: "Use the original attachment names from test code instead of internal names")
 
         utiWhitelist = subparser.add(option: "--uti", shortName: nil, kind: [String].self, strategy: .upToNextOption,
                                      usage: "Whitelist of uniform type identifiers (UTI) attachments must conform to [optional, example: \"--uti public.image public.plain-text\"]")
@@ -85,7 +89,8 @@ struct AttachmentsCommand: Command {
                                               divideByTestPlanConfig: arguments.get(self.divideByTestPlanConfig) ?? (arguments.get(self.divideByTestRun) ?? false),
                                               divideByLanguage: arguments.get(self.divideByLanguage) ?? false,
                                               divideByRegion: arguments.get(self.divideByRegion) ?? false,
-                                              divideByTest: arguments.get(self.divideByTest) ?? false)
+                                              divideByTest: arguments.get(self.divideByTest) ?? false,
+                                              useOriginalNames: arguments.get(self.useOriginalNames) ?? false)
         if let allowedUTIsToExport = arguments.get(self.utiWhitelist) {
             options.attachmentFilter = {
                 let attachmentUTI = $0.uniformTypeIdentifier as CFString
