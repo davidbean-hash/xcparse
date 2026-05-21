@@ -19,6 +19,52 @@ struct XCResultToolCompatability {
     var supportsUnicodeExportPaths: Bool = true // See https://github.com/ChargePoint/xcparse/issues/30
 }
 
+struct AppStoreLocaleMapping {
+    /// Maps xcparse locale representations to App Store Connect API format.
+    /// When both language and region are combined, the format is "language-REGION".
+    /// Special cases (e.g. "es-419" + "MX" -> "es-MX", "nb" + "NO" -> "no") are handled here.
+    static let languageOverrides: [String: String] = [
+        "nb": "no",
+    ]
+
+    static func normalize(language: String, region: String?) -> String {
+        // Handle special language overrides (e.g. nb -> no)
+        if let override = languageOverrides[language] {
+            return override
+        }
+
+        guard let region = region else {
+            return language
+        }
+
+        // Handle compound language codes — distinguish numeric area codes from script subtags.
+        // Numeric subtags (e.g. "419" in "es-419") are UN M.49 area codes and should be
+        // replaced by the region. Alphabetic 4-letter subtags (e.g. "Hans" in "zh-Hans")
+        // are BCP 47 script tags and must be preserved.
+        if language.contains("-") {
+            let parts = language.split(separator: "-")
+            let subtag = parts.count > 1 ? String(parts[1]) : ""
+            let isNumericSubtag = !subtag.isEmpty && subtag.allSatisfy({ $0.isNumber })
+            if isNumericSubtag {
+                let baseLanguage = String(parts[0])
+                return "\(baseLanguage)-\(region)"
+            } else {
+                return language
+            }
+        }
+
+        return "\(language)-\(region)"
+    }
+
+    /// Parses a combined "language (region)" folder name and normalizes it.
+    static func normalizeDirectoryName(language: String?, region: String?) -> String? {
+        guard let language = language else {
+            return nil
+        }
+        return normalize(language: language, region: region)
+    }
+}
+
 struct AttachmentExportOptions {
     var addTestScreenshotsDirectory: Bool = false
     var divideByTargetModel: Bool = false
@@ -27,6 +73,7 @@ struct AttachmentExportOptions {
     var divideByLanguage: Bool = false
     var divideByRegion: Bool = false
     var divideByTest: Bool = false
+    var normalizeLocale: Bool = false
 
     var xcresulttoolCompatability = XCResultToolCompatability()
 
@@ -100,7 +147,11 @@ struct AttachmentExportOptions {
 
         let testLanguage = testableSummary.testLanguage ?? "System Language"
         let testRegion = testableSummary.testRegion ?? "System Region"
-        if self.divideByLanguage == true, self.divideByRegion == true {
+        if self.normalizeLocale, self.divideByLanguage == true {
+            let region = (self.divideByRegion && testableSummary.testRegion != nil) ? testRegion : nil
+            let lang = testableSummary.testLanguage
+            languageRegionDirectoryName = AppStoreLocaleMapping.normalizeDirectoryName(language: lang, region: region) ?? testLanguage
+        } else if self.divideByLanguage == true, self.divideByRegion == true {
             languageRegionDirectoryName = "\(testLanguage) (\(testRegion))"
         } else if self.divideByLanguage == true {
             languageRegionDirectoryName = testLanguage

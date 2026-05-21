@@ -27,6 +27,7 @@ struct ScreenshotsCommand: Command {
     var divideByLanguage: OptionArgument<Bool>
     var divideByRegion: OptionArgument<Bool>
     var divideByTest: OptionArgument<Bool>
+    var normalizeLocale: OptionArgument<Bool>
 
     var testStatusWhitelist: OptionArgument<[String]>
     var activityTypeWhitelist: OptionArgument<[String]>
@@ -47,6 +48,7 @@ struct ScreenshotsCommand: Command {
         divideByLanguage = subparser.add(option: "--language", shortName: nil, kind: Bool.self, usage: "Divide attachments by test language")
         divideByRegion = subparser.add(option: "--region", shortName: nil, kind: Bool.self, usage: "Divide attachments by test region")
         divideByTest = subparser.add(option: "--test", shortName: nil, kind: Bool.self, usage: "Divide screenshots by test")
+        normalizeLocale = subparser.add(option: "--normalize-locale", shortName: nil, kind: Bool.self, usage: "Normalize language/region folder names to App Store Connect API format (e.g. 'en-US' instead of 'en (US)')")
 
         testStatusWhitelist = subparser.add(option: "--test-status", shortName: nil, kind: [String].self, strategy: .upToNextOption,
                                             usage: "Whitelist of acceptable test statuses for screenshots [optional, example: \"--test-status Success Failure\"]")
@@ -88,6 +90,7 @@ struct ScreenshotsCommand: Command {
                                               divideByLanguage: arguments.get(self.divideByLanguage) ?? false,
                                               divideByRegion: arguments.get(self.divideByRegion) ?? false,
                                               divideByTest: arguments.get(self.divideByTest) ?? false,
+                                              normalizeLocale: arguments.get(self.normalizeLocale) ?? false,
                                               attachmentFilter: {
                                                 return UTTypeConformsTo($0.uniformTypeIdentifier as CFString, "public.image" as CFString)
         })
