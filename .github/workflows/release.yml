@@ -1,0 +1,39 @@
+name: Create Release with Checksums
+
+on:
+  push:
+    tags:
+      - '[0-9]+.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and Create Release
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build xcparse
+        run: |
+          swift build -c release
+          cp .build/release/xcparse xcparse-macos
+
+      - name: Generate checksums
+        run: |
+          shasum -a 256 xcparse-macos > checksums.txt
+          echo "SHA256 checksums generated:"
+          cat checksums.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          make_latest: true
+          files: |
+            xcparse-macos
+            checksums.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
