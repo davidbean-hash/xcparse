@@ -27,6 +27,7 @@ struct AttachmentExportOptions {
     var divideByLanguage: Bool = false
     var divideByRegion: Bool = false
     var divideByTest: Bool = false
+    var useAppStoreConnectLocale: Bool = false
 
     var xcresulttoolCompatability = XCResultToolCompatability()
 
@@ -95,12 +96,55 @@ struct AttachmentExportOptions {
         }
     }
 
+    /// Converts xcparse locale components to App Store Connect format.
+    ///
+    /// Special cases:
+    ///   - `nb` (Norwegian Bokmål) maps to `no`
+    ///   - Numeric variant subtags like `es-419` are stripped when combined with a region (e.g. `es-MX`)
+    ///   - Script subtags like `zh-Hans` and `zh-Hant` are preserved as-is
+    static func appStoreConnectLocaleName(language: String?, region: String?) -> String? {
+        guard let lang = language, let reg = region else {
+            // language-only special case
+            if let lang = language {
+                if lang == "nb" { return "no" }
+                return lang
+            }
+            return region
+        }
+
+        // nb with any region collapses to just "no"
+        if lang == "nb" {
+            return "no"
+        }
+
+        // Check if the subtag after the hyphen is a script (4-letter, e.g. Hans/Hant)
+        // or a region/variant (numeric like 419) that should be stripped.
+        let parts = lang.components(separatedBy: "-")
+        if parts.count > 1 {
+            let subtag = parts[1]
+            let isScript = subtag.count == 4 && subtag.allSatisfy({ $0.isLetter })
+            if isScript {
+                // Preserve script subtags (e.g. zh-Hans, zh-Hant)
+                return lang
+            }
+            // Strip numeric/variant subtags and combine with region (e.g. es-419 + MX -> es-MX)
+            return "\(parts[0])-\(reg)"
+        }
+
+        return "\(lang)-\(reg)"
+    }
+
     func screenshotDirectoryURL(_ testableSummary: ActionTestableSummary, forBaseURL baseURL: Foundation.URL) -> Foundation.URL {
         var languageRegionDirectoryName: String? = nil
 
         let testLanguage = testableSummary.testLanguage ?? "System Language"
         let testRegion = testableSummary.testRegion ?? "System Region"
-        if self.divideByLanguage == true, self.divideByRegion == true {
+
+        if self.useAppStoreConnectLocale, self.divideByLanguage == true || self.divideByRegion == true {
+            let lang = self.divideByLanguage ? testableSummary.testLanguage : nil
+            let reg = self.divideByRegion ? testableSummary.testRegion : nil
+            languageRegionDirectoryName = AttachmentExportOptions.appStoreConnectLocaleName(language: lang, region: reg)
+        } else if self.divideByLanguage == true, self.divideByRegion == true {
             languageRegionDirectoryName = "\(testLanguage) (\(testRegion))"
         } else if self.divideByLanguage == true {
             languageRegionDirectoryName = testLanguage

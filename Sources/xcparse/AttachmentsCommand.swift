@@ -26,6 +26,7 @@ struct AttachmentsCommand: Command {
     var divideByLanguage: OptionArgument<Bool>
     var divideByRegion: OptionArgument<Bool>
     var divideByTest: OptionArgument<Bool>
+    var useAppStoreConnectLocale: OptionArgument<Bool>
 
     var utiWhitelist: OptionArgument<[String]>
     var activityTypeWhitelist: OptionArgument<[String]>
@@ -45,6 +46,7 @@ struct AttachmentsCommand: Command {
         divideByLanguage = subparser.add(option: "--language", shortName: nil, kind: Bool.self, usage: "Divide attachments by test language")
         divideByRegion = subparser.add(option: "--region", shortName: nil, kind: Bool.self, usage: "Divide attachments by test region")
         divideByTest = subparser.add(option: "--test", shortName: nil, kind: Bool.self, usage: "Divide attachments by test")
+        useAppStoreConnectLocale = subparser.add(option: "--app-store-connect", shortName: nil, kind: Bool.self, usage: "Format locale folder names for App Store Connect (e.g. en-US instead of en (US))")
 
         utiWhitelist = subparser.add(option: "--uti", shortName: nil, kind: [String].self, strategy: .upToNextOption,
                                      usage: "Whitelist of uniform type identifiers (UTI) attachments must conform to [optional, example: \"--uti public.image public.plain-text\"]")
@@ -85,7 +87,8 @@ struct AttachmentsCommand: Command {
                                               divideByTestPlanConfig: arguments.get(self.divideByTestPlanConfig) ?? (arguments.get(self.divideByTestRun) ?? false),
                                               divideByLanguage: arguments.get(self.divideByLanguage) ?? false,
                                               divideByRegion: arguments.get(self.divideByRegion) ?? false,
-                                              divideByTest: arguments.get(self.divideByTest) ?? false)
+                                              divideByTest: arguments.get(self.divideByTest) ?? false,
+                                              useAppStoreConnectLocale: arguments.get(self.useAppStoreConnectLocale) ?? false)
         if let allowedUTIsToExport = arguments.get(self.utiWhitelist) {
             options.attachmentFilter = {
                 let attachmentUTI = $0.uniformTypeIdentifier as CFString
