@@ -165,7 +165,8 @@ class XCPParser {
         }
 
         let unicodeExport = Version.xcresulttoolCompatibleWithUnicodeExportPath()
-        if xcresulttoolVersion < unicodeExport  {
+        // Semantic versions (major < 1000) indicate Xcode 26+ which fully supports Unicode
+        if xcresulttoolVersion.major >= 1000 && xcresulttoolVersion < unicodeExport  {
             // For explaination, see https://github.com/ChargePoint/xcparse/issues/30
             let asciiDestinationPath = destination.lossyASCIIString() ?? destination
             if asciiDestinationPath != destination {
