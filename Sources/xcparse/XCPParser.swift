@@ -285,13 +285,12 @@ class XCPParser {
         // Pre-compute output filenames when using original names, handling collisions
         var overrideFilenames: [String?] = Array(repeating: nil, count: attachments.count)
         if useOriginalNames {
-            var nameCounters: [String: Int] = [:]
+            var usedFilenames: Set<String> = []
             for (index, attachment) in attachments.enumerated() {
                 guard let originalName = attachment.name else {
                     continue
                 }
 
-                // Get the file extension from the original filename
                 let fileExtension: String
                 if let filename = attachment.filename {
                     let url = URL(fileURLWithPath: filename)
@@ -301,15 +300,14 @@ class XCPParser {
                     fileExtension = ""
                 }
 
-                let baseName = originalName + fileExtension
-                let count = nameCounters[baseName, default: 0]
-                nameCounters[baseName] = count + 1
-
-                if count == 0 {
-                    overrideFilenames[index] = baseName
-                } else {
-                    overrideFilenames[index] = originalName + "_\(count)" + fileExtension
+                var candidate = originalName + fileExtension
+                var counter = 1
+                while usedFilenames.contains(candidate) {
+                    candidate = originalName + "_\(counter)" + fileExtension
+                    counter += 1
                 }
+                usedFilenames.insert(candidate)
+                overrideFilenames[index] = candidate
             }
         }
 
