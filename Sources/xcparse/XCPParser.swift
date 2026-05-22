@@ -238,13 +238,16 @@ class XCPParser {
                     }
 
                     let testableSummariesToTestActivity = testableSummary.flattenedTestSummaryMap(withXCResult: xcresult)
-                    for (testSummary, childActivitySummaries) in testableSummariesToTestActivity {
+                    for (testSummary, _) in testableSummariesToTestActivity {
                         if options.testSummaryFilter(testSummary) == false {
                             continue
                         }
 
-                        let filteredChildActivities = childActivitySummaries.filter(options.activitySummaryFilter)
-                        let filteredAttachments = filteredChildActivities.flatMap { $0.attachments.filter(options.attachmentFilter) }
+                        let filteredAttachments = self.collectFilteredAttachments(
+                            from: testSummary.activitySummaries,
+                            activityFilter: options.activitySummaryFilter,
+                            attachmentFilter: options.attachmentFilter
+                        )
 
                         let testSummaryScreenshotURL = options.screenshotDirectoryURL(testSummary, forBaseURL: testableSummaryScreenshotDirectoryURL)
                         if testSummaryScreenshotURL.createDirectoryIfNecessary(createIntermediates: true) != true {
@@ -295,6 +298,30 @@ class XCPParser {
         progressBar.complete(success: true)
     }
     
+    /// Recursively walks the activity tree collecting attachments.
+    /// When an activity matches the filter, attachments from it and ALL its descendants are included.
+    func collectFilteredAttachments(
+        from activities: [ActionTestActivitySummary],
+        activityFilter: (ActionTestActivitySummary) -> Bool,
+        attachmentFilter: (ActionTestAttachment) -> Bool,
+        ancestorMatched: Bool = false
+    ) -> [ActionTestAttachment] {
+        var result: [ActionTestAttachment] = []
+        for activity in activities {
+            let matched = ancestorMatched || activityFilter(activity)
+            if matched {
+                result.append(contentsOf: activity.attachments.filter(attachmentFilter))
+            }
+            result.append(contentsOf: collectFilteredAttachments(
+                from: activity.subactivities,
+                activityFilter: activityFilter,
+                attachmentFilter: attachmentFilter,
+                ancestorMatched: matched
+            ))
+        }
+        return result
+    }
+
     func extractCoverage(xcresultPath : String, destination : String) throws {
         var xcresult = XCResult(path: xcresultPath, console: self.console)
         guard let invocationRecord = xcresult.invocationRecord else {
