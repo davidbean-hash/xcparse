@@ -190,7 +190,16 @@ open class XCResultToolCommand {
 
 private let shouldAddLegacyFlag: Bool = {
     guard let xcresulttoolVersion = Version.xcresulttool() else {
-      return false
+      // When the version cannot be determined, default to adding --legacy.
+      // Newer Xcode versions (26+) always require it, and failing to add it
+      // produces a hard error, while adding it on older versions is harmless.
+      return true
+    }
+
+    // Semantic versions (major < 1000) indicate Xcode 26+ naming, which
+    // always requires --legacy. Legacy build numbers were always >= 10000.
+    if xcresulttoolVersion.major < 1000 {
+        return true
     }
 
     let versionWithDeprecatedAPIs = Version.xcresulttoolWithDeprecatedAPIs()
