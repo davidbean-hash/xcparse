@@ -18,7 +18,7 @@ open class ActionTestFailureSummary : Codable {
     public let uuid: String
     public let issueType: String?
     public let detailedDescription: String?
-    public let attachments: [ActionTestAttachment] // TODO: Alex - look into whether we need to parse from this for screenshots command
+    public let attachments: [ActionTestAttachment]
     public let associatedError: TestAssociatedError?
     public let sourceCodeContext: SourceCodeContext?
     public let timestamp: Date?
