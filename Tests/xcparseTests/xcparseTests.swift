@@ -26,7 +26,7 @@ final class xcparseTests: XCTestCase {
     lazy var temporaryOutputDirectoryURL:URL  = {
         // Setup a temp test folder that can be used as a sandbox
         let tempDirectoryURL = FileManager.default.temporaryDirectory
-        let temporaryOutputDirectoryName = ProcessInfo().globallyUniqueString
+        let temporaryOutputDirectoryName = ProcessInfo.processInfo.globallyUniqueString
         let temporaryOutputDirectoryURL =
             tempDirectoryURL.appendingPathComponent(temporaryOutputDirectoryName)
         return temporaryOutputDirectoryURL
