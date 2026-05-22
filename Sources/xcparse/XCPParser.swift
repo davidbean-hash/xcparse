@@ -27,6 +27,7 @@ struct AttachmentExportOptions {
     var divideByLanguage: Bool = false
     var divideByRegion: Bool = false
     var divideByTest: Bool = false
+    var useOriginalNames: Bool = false
 
     var xcresulttoolCompatability = XCResultToolCompatability()
 
@@ -272,13 +273,42 @@ class XCPParser {
             let exportRelativePath = exportURL.path.replacingOccurrences(of: screenshotBaseDirectoryURL.path, with: "").trimmingCharacters(in: CharacterSet(charactersIn: "/"))
             let displayName = exportRelativePath.replacingOccurrences(of: "/", with: " - ")
 
-            self.exportAttachments(withXCResult: xcresult, toDirectory: exportURL, attachments: attachmentsToExport, displayName: displayName)
+            self.exportAttachments(withXCResult: xcresult, toDirectory: exportURL, attachments: attachmentsToExport, displayName: displayName, useOriginalNames: options.useOriginalNames)
         }
     }
 
-    func exportAttachments(withXCResult xcresult: XCResult, toDirectory screenshotDirectoryURL: Foundation.URL, attachments: [ActionTestAttachment], displayName: String = "") {
+    func exportAttachments(withXCResult xcresult: XCResult, toDirectory screenshotDirectoryURL: Foundation.URL, attachments: [ActionTestAttachment], displayName: String = "", useOriginalNames: Bool = false) {
         if attachments.count <= 0 {
             return
+        }
+
+        // Pre-compute output filenames when using original names, handling collisions
+        var overrideFilenames: [String?] = Array(repeating: nil, count: attachments.count)
+        if useOriginalNames {
+            var usedFilenames: Set<String> = []
+            for (index, attachment) in attachments.enumerated() {
+                guard let originalName = attachment.name else {
+                    continue
+                }
+
+                let fileExtension: String
+                if let filename = attachment.filename {
+                    let url = URL(fileURLWithPath: filename)
+                    let ext = url.pathExtension
+                    fileExtension = ext.isEmpty ? "" : ".\(ext)"
+                } else {
+                    fileExtension = ""
+                }
+
+                var candidate = originalName + fileExtension
+                var counter = 1
+                while usedFilenames.contains(candidate) {
+                    candidate = originalName + "_\(counter)" + fileExtension
+                    counter += 1
+                }
+                usedFilenames.insert(candidate)
+                overrideFilenames[index] = candidate
+            }
         }
 
         let header = (displayName != "") ? "Exporting \"\(displayName)\" Attachments" : "Exporting Attachments"
@@ -286,9 +316,10 @@ class XCPParser {
         progressBar.update(step: 0, total: attachments.count, text: "")
 
         for (index, attachment) in attachments.enumerated() {
-            progressBar.update(step: index, total: attachments.count, text: "Extracting \"\(attachment.filename ?? "Unknown Filename")\"")
+            let displayFilename = overrideFilenames[index] ?? attachment.filename ?? "Unknown Filename"
+            progressBar.update(step: index, total: attachments.count, text: "Extracting \"\(displayFilename)\"")
 
-            XCResultToolCommand.Export(withXCResult: xcresult, attachment: attachment, outputPath: screenshotDirectoryURL.path).run()
+            XCResultToolCommand.Export(withXCResult: xcresult, attachment: attachment, outputPath: screenshotDirectoryURL.path, overrideFilename: overrideFilenames[index]).run()
         }
 
         progressBar.update(step: attachments.count, total: attachments.count, text: "🎊 Export complete! 🎊")
